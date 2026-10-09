@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   DollarSign,
@@ -44,123 +45,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatCurrency, formatDateTime, formatDate, cn } from "@/lib/utils";
 import type { Transaction } from "@/types";
-
-const mockTransactions: Transaction[] = [
-  {
-    id: "TXN-001",
-    orderId: "ORD-4501",
-    orderNumber: "AA-4501",
-    amount: 18500,
-    method: "cod",
-    status: "completed",
-    createdAt: "2026-07-18T10:30:00Z",
-  },
-  {
-    id: "TXN-002",
-    orderId: "ORD-4500",
-    orderNumber: "AA-4500",
-    amount: 24000,
-    method: "card",
-    status: "completed",
-    reference: "stripe_pi_3Nkx7a2eZvKYlo2C",
-    createdAt: "2026-07-17T16:45:00Z",
-  },
-  {
-    id: "TXN-003",
-    orderId: "ORD-4499",
-    orderNumber: "AA-4499",
-    amount: 6500,
-    method: "cod",
-    status: "pending",
-    createdAt: "2026-07-17T09:15:00Z",
-  },
-  {
-    id: "TXN-004",
-    orderId: "ORD-4498",
-    orderNumber: "AA-4498",
-    amount: 12800,
-    method: "card",
-    status: "completed",
-    reference: "stripe_pi_3Nkw5b2eZvKYlo2C",
-    createdAt: "2026-07-16T14:20:00Z",
-  },
-  {
-    id: "TXN-005",
-    orderId: "ORD-4497",
-    orderNumber: "AA-4497",
-    amount: 31000,
-    method: "card",
-    status: "refunded",
-    reference: "stripe_re_3Nkv4a2eZvKYlo2C",
-    createdAt: "2026-07-15T11:00:00Z",
-  },
-  {
-    id: "TXN-006",
-    orderId: "ORD-4496",
-    orderNumber: "AA-4496",
-    amount: 9500,
-    method: "cod",
-    status: "completed",
-    createdAt: "2026-07-14T08:30:00Z",
-  },
-  {
-    id: "TXN-007",
-    orderId: "ORD-4495",
-    orderNumber: "AA-4495",
-    amount: 4200,
-    method: "card",
-    status: "failed",
-    reference: "stripe_pi_3Nkt3a2eZvKYlo2C",
-    createdAt: "2026-07-13T17:10:00Z",
-  },
-  {
-    id: "TXN-008",
-    orderId: "ORD-4494",
-    orderNumber: "AA-4494",
-    amount: 15600,
-    method: "cod",
-    status: "completed",
-    createdAt: "2026-07-12T12:00:00Z",
-  },
-  {
-    id: "TXN-009",
-    orderId: "ORD-4493",
-    orderNumber: "AA-4493",
-    amount: 21000,
-    method: "card",
-    status: "completed",
-    reference: "stripe_pi_3Nkr2a2eZvKYlo2C",
-    createdAt: "2026-07-11T15:45:00Z",
-  },
-  {
-    id: "TXN-010",
-    orderId: "ORD-4492",
-    orderNumber: "AA-4492",
-    amount: 7800,
-    method: "cod",
-    status: "pending",
-    createdAt: "2026-07-10T10:15:00Z",
-  },
-  {
-    id: "TXN-011",
-    orderId: "ORD-4491",
-    orderNumber: "AA-4491",
-    amount: 42000,
-    method: "card",
-    status: "completed",
-    reference: "stripe_pi_3Nkp1a2eZvKYlo2C",
-    createdAt: "2026-07-09T09:00:00Z",
-  },
-  {
-    id: "TXN-012",
-    orderId: "ORD-4490",
-    orderNumber: "AA-4490",
-    amount: 3500,
-    method: "cod",
-    status: "failed",
-    createdAt: "2026-07-08T13:30:00Z",
-  },
-];
+import { adminPaymentService } from "@/lib/admin-services";
+import { getErrorMessage } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 
 const filterTabs = [
   { key: "all", label: "All" },
@@ -180,7 +67,20 @@ const statusConfig: Record<string, { color: string; bg: string }> = {
 };
 
 export default function PaymentsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: transactions = [] } = useQuery({
+    queryKey: ["payments"],
+    queryFn: () => adminPaymentService.list(),
+  });
+  const refundMutation = useMutation({
+    mutationFn: (id: string) => adminPaymentService.refund(id),
+    onError: (error: unknown) => toast("error", getErrorMessage(error)),
+    onSuccess: () => {
+      toast("success", "Payment refunded successfully");
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
+    },
+  });
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -215,8 +115,8 @@ export default function PaymentsPage() {
       title: "Total Revenue",
       value: formatCurrency(totalRevenue),
       icon: DollarSign,
-      color: "text-[#7A6543]",
-      bg: "bg-[#C9A96E]/10",
+      color: "text-[#B8906A]",
+      bg: "bg-[#C9A27E]/10",
     },
     {
       title: "Successful",
@@ -243,14 +143,13 @@ export default function PaymentsPage() {
 
   const handleRefund = () => {
     if (!refundDialog) return;
-    setTransactions((prev) =>
-      prev.map((t) =>
-        t.id === refundDialog.id ? { ...t, status: "refunded" as const } : t
-      )
-    );
-    setRefundDialog(null);
-    setRefundAmount("");
-    setRefundReason("");
+    refundMutation.mutate(refundDialog.id, {
+      onSettled: () => {
+        setRefundDialog(null);
+        setRefundAmount("");
+        setRefundReason("");
+      },
+    });
   };
 
   const processRefund = (tx: Transaction) => {
@@ -276,13 +175,13 @@ export default function PaymentsPage() {
   };
 
   return (
-    <div className="space-y-8 p-8">
-      <div className="flex items-center justify-between">
+    <div className="min-w-0 space-y-8 p-4 sm:p-6 lg:p-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#1A1A1A]">
             Payments
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-[#1A1A1A]/50">
             {formatCurrency(totalRevenue)} total revenue
           </p>
         </div>
@@ -300,18 +199,18 @@ export default function PaymentsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.08 }}
           >
-            <Card className="border-gray-100">
+            <Card className="border-[#1A1A1A]/10">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                    <p className="text-xs font-medium uppercase tracking-wider text-[#1A1A1A]/50">
                       {stat.title}
                     </p>
                     <p className="mt-2 text-2xl font-bold text-[#1A1A1A]">
                       {stat.value}
                     </p>
                   </div>
-                  <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl", stat.bg)}>
+                  <div className={cn("flex h-11 w-11 items-center justify-center rounded-sm", stat.bg)}>
                     <stat.icon className={cn("h-5 w-5", stat.color)} />
                   </div>
                 </div>
@@ -326,19 +225,19 @@ export default function PaymentsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <Card className="border-gray-100">
+        <Card className="border-[#1A1A1A]/10">
           <CardHeader>
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1">
+              <div className="flex gap-1 rounded-sm border border-[#1A1A1A]/10 bg-[#E8DDD4]/40 p-1">
                 {filterTabs.map((tab) => (
                   <button
                     key={tab.key}
                     onClick={() => setActiveFilter(tab.key)}
                     className={cn(
-                      "rounded-md px-4 py-1.5 text-xs font-medium transition-all",
+                      "rounded-sm px-4 py-1.5 text-xs font-medium transition-all",
                       activeFilter === tab.key
-                        ? "bg-white text-[#7A6543] shadow-sm"
-                        : "text-gray-500 hover:text-[#1A1A1A]"
+                        ? "bg-white text-[#B8906A] shadow-sm"
+                        : "text-[#1A1A1A]/50 hover:text-[#1A1A1A]"
                     )}
                   >
                     {tab.label}
@@ -347,8 +246,8 @@ export default function PaymentsPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5">
-                  <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                <div className="flex items-center gap-1.5 rounded-sm border border-[#1A1A1A]/10 bg-white px-2.5 py-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-[#1A1A1A]/40" />
                   <input
                     type="date"
                     value={dateFrom}
@@ -356,7 +255,7 @@ export default function PaymentsPage() {
                     className="border-0 bg-transparent text-xs text-[#1A1A1A] outline-none"
                     placeholder="From"
                   />
-                  <span className="text-gray-300">—</span>
+                  <span className="text-[#1A1A1A]/30">—</span>
                   <input
                     type="date"
                     value={dateTo}
@@ -375,7 +274,7 @@ export default function PaymentsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-xl border border-gray-100">
+            <div className="max-w-full overflow-x-auto rounded-sm border border-[#1A1A1A]/10">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -392,7 +291,7 @@ export default function PaymentsPage() {
                 <TableBody>
                   {filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="h-24 text-center text-gray-500">
+                      <TableCell colSpan={8} className="h-24 text-center text-[#1A1A1A]/50">
                         No transactions found.
                       </TableCell>
                     </TableRow>
@@ -407,8 +306,8 @@ export default function PaymentsPage() {
                         <TableCell>
                           <span className="font-medium">{txn.orderNumber}</span>
                         </TableCell>
-                        <TableCell className="text-gray-500">
-                          {txn.orderNumber.replace("AA-", "Customer ")}
+                        <TableCell className="text-[#1A1A1A]/50">
+                          {txn.orderNumber.replace("HC-", "Customer ")}
                         </TableCell>
                         <TableCell className="font-semibold">
                           {formatCurrency(txn.amount)}
@@ -420,7 +319,7 @@ export default function PaymentsPage() {
                             ) : (
                               <Banknote className="h-3.5 w-3.5 text-emerald-500" />
                             )}
-                            <span className="text-xs font-medium uppercase text-gray-600">
+                            <span className="text-xs font-medium uppercase text-[#1A1A1A]/60">
                               {txn.method}
                             </span>
                           </div>
@@ -436,13 +335,13 @@ export default function PaymentsPage() {
                             {txn.status.charAt(0).toUpperCase() + txn.status.slice(1)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-xs text-gray-500">
+                        <TableCell className="text-xs text-[#1A1A1A]/50">
                           {formatDate(txn.createdAt)}
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>
-                            <DropdownMenuTrigger>
-                              <button className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-[#1A1A1A]">
+                            <DropdownMenuTrigger asChild>
+                              <button className="rounded-sm p-1.5 text-[#1A1A1A]/40 transition-colors hover:bg-[#E8DDD4]/50 hover:text-[#1A1A1A]">
                                 <MoreHorizontal className="h-4 w-4" />
                               </button>
                             </DropdownMenuTrigger>
@@ -486,7 +385,7 @@ export default function PaymentsPage() {
             <div className="mt-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <p className="text-xs font-medium uppercase tracking-wider text-[#1A1A1A]/50">
                     Transaction ID
                   </p>
                   <p className="mt-1 font-mono text-sm font-semibold text-[#1A1A1A]">
@@ -494,7 +393,7 @@ export default function PaymentsPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <p className="text-xs font-medium uppercase tracking-wider text-[#1A1A1A]/50">
                     Order Number
                   </p>
                   <p className="mt-1 text-sm font-semibold text-[#1A1A1A]">
@@ -502,7 +401,7 @@ export default function PaymentsPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <p className="text-xs font-medium uppercase tracking-wider text-[#1A1A1A]/50">
                     Amount
                   </p>
                   <p className="mt-1 text-lg font-bold text-[#1A1A1A]">
@@ -510,7 +409,7 @@ export default function PaymentsPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <p className="text-xs font-medium uppercase tracking-wider text-[#1A1A1A]/50">
                     Payment Method
                   </p>
                   <div className="mt-1 flex items-center gap-1.5">
@@ -525,7 +424,7 @@ export default function PaymentsPage() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <p className="text-xs font-medium uppercase tracking-wider text-[#1A1A1A]/50">
                     Status
                   </p>
                   <Badge
@@ -539,7 +438,7 @@ export default function PaymentsPage() {
                   </Badge>
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <p className="text-xs font-medium uppercase tracking-wider text-[#1A1A1A]/50">
                     Date
                   </p>
                   <p className="mt-1 text-sm text-[#1A1A1A]">
@@ -548,10 +447,10 @@ export default function PaymentsPage() {
                 </div>
                 {detailDialog.reference && (
                   <div className="col-span-2">
-                    <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                    <p className="text-xs font-medium uppercase tracking-wider text-[#1A1A1A]/50">
                       Reference
                     </p>
-                    <p className="mt-1 font-mono text-xs text-gray-600">
+                    <p className="mt-1 font-mono text-xs text-[#1A1A1A]/60">
                       {detailDialog.reference}
                     </p>
                   </div>
@@ -570,8 +469,8 @@ export default function PaymentsPage() {
           </DialogDescription>
           {refundDialog && (
             <div className="mt-5 space-y-4">
-              <div className="rounded-lg bg-[#F5F0EB] p-4">
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+              <div className="rounded-sm bg-[#F8F5F2] p-4">
+                <p className="text-xs font-medium uppercase tracking-wider text-[#1A1A1A]/50">
                   Original Amount
                 </p>
                 <p className="mt-1 text-xl font-bold text-[#1A1A1A]">
@@ -593,7 +492,7 @@ export default function PaymentsPage() {
                   value={refundReason}
                   onChange={(e) => setRefundReason(e.target.value)}
                   placeholder="Enter refund reason..."
-                  className="flex min-h-[80px] w-full rounded-lg border border-gray-200 bg-[#F5F0EB]/50 px-3 py-2 text-sm text-[#1A1A1A] transition-colors placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E]"
+                  className="flex min-h-[80px] w-full rounded-sm border border-[#1A1A1A]/10 bg-[#F8F5F2]/50 px-3 py-2 text-sm text-[#1A1A1A] transition-colors placeholder:text-[#1A1A1A]/40 focus:outline-none focus:ring-2 focus:ring-[#C9A27E]/30 focus:border-[#C9A27E]"
                 />
               </div>
               <div className="flex items-center justify-end gap-3 pt-2">

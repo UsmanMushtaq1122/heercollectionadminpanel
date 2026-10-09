@@ -20,7 +20,6 @@ import {
   Briefcase,
   Mail,
   MessageSquare,
-  Star,
   Ticket,
   CreditCard,
   Settings,
@@ -30,6 +29,9 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  Boxes,
+  Sparkles,
+  Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppDispatch, useAppSelector } from "@/store";
@@ -60,6 +62,7 @@ const contentSection: NavSection = {
   icon: ChevronDown,
   items: [
     { label: "Banners", href: "/admin/content/banners", icon: Image },
+    { label: "Collections", href: "/admin/content/collections", icon: Sparkles },
     { label: "Editorial", href: "/admin/content/editorial", icon: FileText },
     { label: "Testimonials", href: "/admin/content/testimonials", icon: Quote },
     { label: "FAQs", href: "/admin/content/faqs", icon: HelpCircle },
@@ -83,6 +86,7 @@ const settingsSection: NavSection = {
   icon: ChevronDown,
   items: [
     { label: "General", href: "/admin/settings", icon: Settings },
+    { label: "Social Media Links", href: "/admin/settings/social-media", icon: Share2 },
     { label: "Shipping", href: "/admin/settings/shipping", icon: Truck },
     { label: "SEO", href: "/admin/settings/seo", icon: Search },
     { label: "Admin Users", href: "/admin/settings/users", icon: Shield },
@@ -95,7 +99,6 @@ const singleNavItems: NavItemSingle[] = [
   { label: "Categories", href: "/admin/categories", icon: Tag },
   { label: "Orders", href: "/admin/orders", icon: ShoppingCart },
   { label: "Customers", href: "/admin/customers", icon: Users },
-  { label: "Reviews", href: "/admin/reviews", icon: Star },
   { label: "Coupons", href: "/admin/coupons", icon: Ticket },
   { label: "Payments", href: "/admin/payments", icon: CreditCard },
 ];
@@ -133,24 +136,27 @@ export default function AdminSidebar() {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-white/5 bg-[#1A1A1A] text-[#F5F0EB] transition-all duration-300",
+        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-white/10 bg-[#1A1A1A] text-[#F8F5F2] transition-all duration-300",
         collapsed ? "w-[72px]" : "w-[260px]"
       )}
     >
-      <div className="flex h-16 items-center justify-between border-b border-white/5 px-4">
-        <Link href="/admin" className="flex items-center gap-2">
-          <span className="font-['Playfair_Display'] text-2xl font-bold text-[#C9A96E]">
-            AA
-          </span>
-          {!collapsed && (
-            <span className="font-['Playfair_Display'] text-sm font-medium text-[#F5F0EB]/70">
-              Admin
+      <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
+        <Link href="/admin" className="flex items-center gap-2.5">
+          <Boxes className="h-6 w-6 text-[#C9A27E]" />
+          <span className="flex flex-col">
+            <span className="font-serif text-lg font-semibold leading-none tracking-[0.2em] text-[#C9A27E]">
+              HEER
             </span>
-          )}
+            {!collapsed && (
+              <span className="mt-1 text-[10px] font-medium uppercase tracking-[0.3em] text-[#F8F5F2]/50">
+                Collection
+              </span>
+            )}
+          </span>
         </Link>
         <button
           onClick={() => dispatch(toggleSidebar())}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-[#F5F0EB]/50 transition-colors hover:bg-white/5 hover:text-[#C9A96E]"
+          className="flex h-8 w-8 items-center justify-center rounded-sm text-[#F8F5F2]/50 transition-colors hover:bg-white/10 hover:text-[#C9A27E]"
         >
           {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
         </button>
@@ -169,10 +175,10 @@ export default function AdminSidebar() {
                   <button
                     onClick={() => toggleSection(navSection.label)}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                      "flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-sm font-medium transition-all",
                       sectionActive
-                        ? "text-[#C9A96E]"
-                        : "text-[#F5F0EB]/60 hover:text-[#F5F0EB]"
+                        ? "text-[#C9A27E]"
+                        : "text-[#F8F5F2]/60 hover:text-[#F8F5F2]"
                     )}
                   >
                     <navSection.icon size={20} />
@@ -203,10 +209,10 @@ export default function AdminSidebar() {
                               key={item.href}
                               href={item.href}
                               className={cn(
-                                "flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] transition-all",
+                                "flex items-center gap-2.5 rounded-sm px-3 py-2 text-[13px] transition-all",
                                 isActive(item.href)
-                                  ? "border-l-2 border-[#C9A96E] bg-[#C9A96E]/10 pl-[10px] text-[#C9A96E]"
-                                  : "text-[#F5F0EB]/50 hover:bg-white/5 hover:text-[#F5F0EB]"
+                                  ? "border-l-2 border-[#C9A27E] bg-[#C9A27E]/10 pl-[10px] text-[#C9A27E]"
+                                  : "text-[#F8F5F2]/50 hover:bg-white/5 hover:text-[#F8F5F2]"
                               )}
                             >
                               <item.icon size={16} />
@@ -229,10 +235,10 @@ export default function AdminSidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                  "flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm font-medium transition-all",
                   active
-                    ? "border-l-2 border-[#C9A96E] bg-[#C9A96E]/10 pl-[10px] text-[#C9A96E]"
-                    : "text-[#F5F0EB]/60 hover:bg-white/5 hover:text-[#F5F0EB]"
+                    ? "border-l-2 border-[#C9A27E] bg-[#C9A27E]/10 pl-[10px] text-[#C9A27E]"
+                    : "text-[#F8F5F2]/60 hover:bg-white/5 hover:text-[#F8F5F2]"
                 )}
                 title={collapsed ? item.label : undefined}
               >
@@ -244,22 +250,22 @@ export default function AdminSidebar() {
         </div>
       </nav>
 
-      <div className="border-t border-white/5 p-3">
+      <div className="border-t border-white/10 p-3">
         <div
           className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2.5",
+            "flex items-center gap-3 rounded-sm px-3 py-2.5",
             collapsed && "justify-center"
           )}
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#C9A96E]/20 text-sm font-semibold text-[#C9A96E]">
-            {user?.name?.charAt(0) || "A"}
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#C9A27E]/20 text-sm font-semibold text-[#C9A27E]">
+            {user?.name?.charAt(0) || "H"}
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-[#F5F0EB]">
+              <p className="truncate text-sm font-medium text-[#F8F5F2]">
                 {user?.name || "Admin"}
               </p>
-              <span className="inline-block rounded-full bg-[#C9A96E]/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#C9A96E]">
+              <span className="inline-block rounded-full bg-[#C9A27E]/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#C9A27E]">
                 {user?.role || "Admin"}
               </span>
             </div>
@@ -267,7 +273,7 @@ export default function AdminSidebar() {
           {!collapsed && (
             <button
               onClick={() => logout(queryClient)}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#F5F0EB]/40 transition-colors hover:bg-white/5 hover:text-[#8B1A1A]"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-[#F8F5F2]/40 transition-colors hover:bg-white/5 hover:text-red-400"
             >
               <LogOut size={16} />
             </button>

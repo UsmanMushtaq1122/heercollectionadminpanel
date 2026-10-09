@@ -105,7 +105,7 @@ function DropdownMenuContent({
   return (
     <div
       className={cn(
-        "absolute top-full z-50 mt-2 min-w-[180px] overflow-hidden rounded-xl border border-gray-100 bg-white py-1.5 shadow-xl",
+        "absolute top-full z-50 mt-2 min-w-[180px] overflow-hidden rounded-sm border border-[#1A1A1A]/10 bg-white py-1.5 shadow-md",
         alignment[align],
         className
       )}
@@ -132,7 +132,7 @@ function DropdownMenuItem({
   return (
     <button
       className={cn(
-        "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50",
+        "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-[#E8DDD4]/50",
         destructive
           ? "text-red-600 hover:bg-red-50"
           : "text-[#1A1A1A]",
@@ -150,7 +150,7 @@ function DropdownMenuItem({
 }
 
 function DropdownMenuSeparator() {
-  return <div className="my-1 h-px bg-gray-100" />;
+  return <div className="my-1 h-px bg-[#1A1A1A]/10" />;
 }
 
 export {

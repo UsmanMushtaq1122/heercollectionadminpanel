@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -27,15 +27,12 @@ import {
   Command,
   X,
   ArrowRight,
-  TrendingUp,
   AlertTriangle,
-  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { useAuth } from "@/hooks/useAuth";
 import { toggleSidebar } from "@/store/slices/uiSlice";
-import Breadcrumbs from "./breadcrumbs";
 
 interface NotificationItem {
   id: string;
@@ -67,15 +64,6 @@ const initialNotifications: NotificationItem[] = [
     link: "/admin/products",
   },
   {
-    id: "3",
-    title: "New 5-Star Customer Review",
-    description: "Fatima Khan left a review on 'Royal Kurti'",
-    time: "1h ago",
-    unread: true,
-    type: "system",
-    link: "/admin/reviews",
-  },
-  {
     id: "4",
     title: "Payment Verified",
     description: "Order #1042 card payment of PKR 32,500 settled",
@@ -98,8 +86,11 @@ const searchNavItems = [
   { label: "Upload Banner", href: "/admin/content/banners", category: "Quick Action", icon: ImageIcon },
 ];
 
-export default function AdminHeader() {
-  const pathname = usePathname();
+interface AdminHeaderProps {
+  onMobileMenuOpen?: () => void;
+}
+
+export default function AdminHeader({ onMobileMenuOpen }: AdminHeaderProps) {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const collapsed = useAppSelector((state) => state.ui.sidebarCollapsed);
@@ -178,20 +169,26 @@ export default function AdminHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-[#1A1A1A]/10 bg-white/90 px-4 md:px-6 backdrop-blur-md shadow-xs transition-all">
-        {/* Left Section: Sidebar Toggle & Breadcrumbs */}
+      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-[#1A1A1A]/10 bg-white/90 px-4 md:px-6 backdrop-blur-md shadow-[0_1px_20px_rgba(0,0,0,0.06)] transition-all">
+        {/* Left Section: Sidebar Toggle */}
         <div className="flex items-center gap-3 md:gap-4">
           <button
             onClick={() => dispatch(toggleSidebar())}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-[#1A1A1A]/70 transition-all hover:bg-[#1A1A1A]/5 hover:text-[#1A1A1A] active:scale-95"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-sm text-[#1A1A1A]/70 transition-all hover:bg-[#E8DDD4]/50 hover:text-[#1A1A1A] active:scale-95 md:min-h-9 md:min-w-9"
             title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
           </button>
 
-          <div className="h-4 w-px bg-gray-200" />
+          <button
+            onClick={onMobileMenuOpen}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-sm text-[#1A1A1A]/70 transition-all hover:bg-[#E8DDD4]/50 hover:text-[#1A1A1A] active:scale-95 md:hidden"
+            aria-label="Open admin menu"
+          >
+            <PanelLeftOpen size={20} />
+          </button>
 
-          <Breadcrumbs pathname={pathname} />
         </div>
 
         {/* Center / Right Section */}
@@ -199,13 +196,13 @@ export default function AdminHeader() {
           {/* Quick Search Button / Input Command Bar */}
           <button
             onClick={() => setSearchModalOpen(true)}
-            className="group relative hidden h-9 w-56 items-center justify-between rounded-xl border border-stone-200 bg-stone-50/80 px-3 text-xs text-stone-500 shadow-2xs transition-all hover:border-[#C9A96E]/60 hover:bg-white hover:shadow-xs md:flex lg:w-72"
+            className="group relative hidden h-9 w-56 items-center justify-between rounded-sm border border-[#1A1A1A]/15 bg-white px-3 text-xs text-[#1A1A1A]/50 shadow-sm transition-all hover:border-[#C9A27E]/60 hover:bg-white hover:shadow-md md:flex lg:w-72"
           >
             <span className="flex items-center gap-2">
-              <Search size={15} className="text-stone-400 transition-colors group-hover:text-[#C9A96E]" />
+              <Search size={15} className="text-[#1A1A1A]/40 transition-colors group-hover:text-[#C9A27E]" />
               <span className="truncate">Search commands, pages...</span>
             </span>
-            <kbd className="inline-flex h-5 items-center gap-0.5 rounded border border-stone-200 bg-white px-1.5 font-mono text-[10px] font-semibold text-stone-500 shadow-2xs">
+            <kbd className="inline-flex h-5 items-center gap-0.5 rounded-sm border border-[#1A1A1A]/10 bg-[#F8F5F2] px-1.5 font-mono text-[10px] font-semibold text-[#1A1A1A]/50">
               <Command size={10} />K
             </kbd>
           </button>
@@ -213,7 +210,7 @@ export default function AdminHeader() {
           {/* Mobile Search Icon */}
           <button
             onClick={() => setSearchModalOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-stone-600 transition-colors hover:bg-stone-100 md:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-sm text-[#1A1A1A]/60 transition-colors hover:bg-[#E8DDD4]/50 md:hidden"
             title="Search"
           >
             <Search size={19} />
@@ -232,7 +229,7 @@ export default function AdminHeader() {
           <div ref={quickAddRef} className="relative">
             <button
               onClick={() => setQuickAddOpen(!quickAddOpen)}
-              className="flex h-9 items-center gap-1.5 rounded-xl border border-[#C9A96E]/40 bg-[#C9A96E]/10 px-3 text-xs font-semibold text-[#7A6543] transition-all hover:bg-[#C9A96E]/20 active:scale-95"
+              className="flex h-9 items-center gap-1.5 rounded-sm border border-[#C9A27E]/40 bg-[#C9A27E]/10 px-3 text-xs font-semibold text-[#B8906A] transition-all hover:bg-[#C9A27E]/20 active:scale-95"
             >
               <Plus size={15} className="stroke-[2.5]" />
               <span className="hidden sm:inline">Quick Add</span>
@@ -249,15 +246,15 @@ export default function AdminHeader() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.96 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl ring-1 ring-black/5 z-50"
+                  className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-sm border border-[#1A1A1A]/10 bg-white p-1.5 shadow-lg z-50"
                 >
-                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#1A1A1A]/40">
                     Create New
                   </div>
                   <Link
                     href="/admin/products/new"
                     onClick={() => setQuickAddOpen(false)}
-                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-700 transition-colors hover:bg-[#C9A96E]/10 hover:text-[#7A6543]"
+                    className="flex items-center gap-2.5 rounded-sm px-3 py-2 text-xs font-medium text-[#1A1A1A] transition-colors hover:bg-[#C9A27E]/10 hover:text-[#B8906A]"
                   >
                     <Package size={15} />
                     New Product
@@ -265,7 +262,7 @@ export default function AdminHeader() {
                   <Link
                     href="/admin/content/banners"
                     onClick={() => setQuickAddOpen(false)}
-                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-700 transition-colors hover:bg-[#C9A96E]/10 hover:text-[#7A6543]"
+                    className="flex items-center gap-2.5 rounded-sm px-3 py-2 text-xs font-medium text-[#1A1A1A] transition-colors hover:bg-[#C9A27E]/10 hover:text-[#B8906A]"
                   >
                     <ImageIcon size={15} />
                     New Banner
@@ -273,18 +270,18 @@ export default function AdminHeader() {
                   <Link
                     href="/admin/coupons"
                     onClick={() => setQuickAddOpen(false)}
-                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-700 transition-colors hover:bg-[#C9A96E]/10 hover:text-[#7A6543]"
+                    className="flex items-center gap-2.5 rounded-sm px-3 py-2 text-xs font-medium text-[#1A1A1A] transition-colors hover:bg-[#C9A27E]/10 hover:text-[#B8906A]"
                   >
                     <Tag size={15} />
                     New Coupon
                   </Link>
-                  <div className="my-1 h-px bg-stone-100" />
+                  <div className="my-1 h-px bg-[#1A1A1A]/10" />
                   <a
                     href="/"
                     target="_blank"
                     rel="noreferrer"
                     onClick={() => setQuickAddOpen(false)}
-                    className="flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-stone-600 transition-colors hover:bg-stone-100"
+                    className="flex items-center justify-between rounded-sm px-3 py-2 text-xs font-medium text-[#1A1A1A]/60 transition-colors hover:bg-[#E8DDD4]/40"
                   >
                     <span className="flex items-center gap-2.5">
                       <ExternalLink size={15} />
@@ -300,12 +297,12 @@ export default function AdminHeader() {
           <div ref={notificationsRef} className="relative">
             <button
               onClick={() => setNotificationsOpen(!notificationsOpen)}
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl text-stone-600 transition-all hover:bg-stone-100 hover:text-[#1A1A1A]"
+              className="relative flex h-9 w-9 items-center justify-center rounded-sm text-[#1A1A1A]/60 transition-all hover:bg-[#E8DDD4]/50 hover:text-[#1A1A1A]"
               title="Notifications"
             >
               <Bell size={19} />
               {notificationCount > 0 && (
-                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#8B1A1A] px-1 text-[10px] font-bold text-white shadow-xs animate-pulse">
+                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#C9A27E] px-1 text-[10px] font-bold text-white shadow-sm">
                   {notificationCount}
                 </span>
               )}
@@ -318,13 +315,13 @@ export default function AdminHeader() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.96 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-full mt-2 w-80 sm:w-96 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl z-50"
+                  className="absolute right-0 top-full mt-2 w-80 sm:w-96 overflow-hidden rounded-sm border border-[#1A1A1A]/10 bg-white shadow-lg z-50"
                 >
-                  <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3 bg-stone-50/50">
+                  <div className="flex items-center justify-between border-b border-[#1A1A1A]/10 px-4 py-3 bg-[#F8F5F2]">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-semibold text-sm text-[#1A1A1A]">Notifications</h4>
+                      <h4 className="text-sm font-semibold text-[#1A1A1A]">Notifications</h4>
                       {unreadCount > 0 && (
-                        <span className="rounded-full bg-[#8B1A1A]/10 px-2 py-0.5 text-[11px] font-bold text-[#8B1A1A]">
+                        <span className="rounded-full bg-[#C9A27E]/10 px-2 py-0.5 text-[11px] font-bold text-[#B8906A]">
                           {unreadCount} unread
                         </span>
                       )}
@@ -332,7 +329,7 @@ export default function AdminHeader() {
                     {unreadCount > 0 && (
                       <button
                         onClick={markAllNotifsAsRead}
-                        className="text-xs font-semibold text-[#7A6543] transition-colors hover:text-[#1A1A1A]"
+                        className="text-xs font-semibold text-[#B8906A] transition-colors hover:text-[#1A1A1A]"
                       >
                         Mark all read
                       </button>
@@ -340,14 +337,14 @@ export default function AdminHeader() {
                   </div>
 
                   {/* Filter Tabs */}
-                  <div className="flex border-b border-stone-100 bg-white px-4 pt-2">
+                  <div className="flex border-b border-[#1A1A1A]/10 bg-white px-4 pt-2">
                     <button
                       onClick={() => setActiveNotifTab("all")}
                       className={cn(
                         "pb-2 text-xs font-semibold transition-colors border-b-2 px-2",
                         activeNotifTab === "all"
-                          ? "border-[#C9A96E] text-[#1A1A1A]"
-                          : "border-transparent text-stone-400 hover:text-stone-600"
+                          ? "border-[#C9A27E] text-[#1A1A1A]"
+                          : "border-transparent text-[#1A1A1A]/40 hover:text-[#1A1A1A]/60"
                       )}
                     >
                       All
@@ -357,8 +354,8 @@ export default function AdminHeader() {
                       className={cn(
                         "pb-2 text-xs font-semibold transition-colors border-b-2 px-2 ml-4",
                         activeNotifTab === "unread"
-                          ? "border-[#C9A96E] text-[#1A1A1A]"
-                          : "border-transparent text-stone-400 hover:text-stone-600"
+                          ? "border-[#C9A27E] text-[#1A1A1A]"
+                          : "border-transparent text-[#1A1A1A]/40 hover:text-[#1A1A1A]/60"
                       )}
                     >
                       Unread ({unreadCount})
@@ -366,9 +363,9 @@ export default function AdminHeader() {
                   </div>
 
                   {/* Notification List */}
-                  <div className="max-h-80 overflow-y-auto divide-y divide-stone-100">
+                  <div className="max-h-80 overflow-y-auto divide-y divide-[#1A1A1A]/5">
                     {displayedNotifications.length === 0 ? (
-                      <div className="p-8 text-center text-xs text-stone-400">
+                      <div className="p-8 text-center text-xs text-[#1A1A1A]/40">
                         <CheckCircle2 size={24} className="mx-auto mb-2 text-emerald-500 opacity-60" />
                         No notifications to display
                       </div>
@@ -384,18 +381,18 @@ export default function AdminHeader() {
                             setNotificationsOpen(false);
                           }}
                           className={cn(
-                            "flex items-start gap-3 p-3.5 transition-colors hover:bg-stone-50",
-                            n.unread ? "bg-[#C9A96E]/5" : "bg-white"
+                            "flex items-start gap-3 p-3.5 transition-colors hover:bg-[#E8DDD4]/30",
+                            n.unread ? "bg-[#C9A27E]/5" : "bg-white"
                           )}
                         >
                           <div
                             className={cn(
-                              "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white mt-0.5",
+                              "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white mt-0.5",
                               n.type === "order"
                                 ? "bg-emerald-600"
                                 : n.type === "inventory"
-                                ? "bg-amber-500"
-                                : "bg-indigo-600"
+                                ? "bg-[#B8906A]"
+                                : "bg-[#C9A27E]"
                             )}
                           >
                             {n.type === "order" ? (
@@ -408,24 +405,24 @@ export default function AdminHeader() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
-                              <p className={cn("text-xs font-semibold truncate", n.unread ? "text-[#1A1A1A]" : "text-stone-600")}>
+                              <p className={cn("text-xs font-semibold truncate", n.unread ? "text-[#1A1A1A]" : "text-[#1A1A1A]/60")}>
                                 {n.title}
                               </p>
-                              <span className="shrink-0 text-[10px] text-stone-400">{n.time}</span>
+                              <span className="shrink-0 text-[10px] text-[#1A1A1A]/40">{n.time}</span>
                             </div>
-                            <p className="text-[11px] text-stone-500 line-clamp-1 mt-0.5">{n.description}</p>
+                            <p className="text-[11px] text-[#1A1A1A]/50 line-clamp-1 mt-0.5">{n.description}</p>
                           </div>
-                          {n.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-[#8B1A1A] mt-1.5" />}
+                          {n.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-[#C9A27E] mt-1.5" />}
                         </Link>
                       ))
                     )}
                   </div>
 
-                  <div className="border-t border-stone-100 bg-stone-50/60 p-2 text-center">
+                  <div className="border-t border-[#1A1A1A]/10 bg-[#F8F5F2] p-2 text-center">
                     <Link
                       href="/admin/orders"
                       onClick={() => setNotificationsOpen(false)}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#7A6543] hover:text-[#1A1A1A]"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#B8906A] hover:text-[#1A1A1A]"
                     >
                       View order dashboard <ArrowRight size={12} />
                     </Link>
@@ -435,30 +432,30 @@ export default function AdminHeader() {
             </AnimatePresence>
           </div>
 
-          <div className="h-4 w-px bg-stone-200 mx-0.5" />
+          <div className="h-4 w-px bg-[#1A1A1A]/10 mx-0.5" />
 
           {/* User Profile Menu */}
           <div ref={profileRef} className="relative">
             <button
               onClick={() => setProfileOpen(!profileOpen)}
-              className="flex items-center gap-2.5 rounded-xl p-1.5 transition-all hover:bg-stone-100 active:scale-98"
+              className="flex items-center gap-2.5 rounded-sm p-1.5 transition-all hover:bg-[#E8DDD4]/50"
             >
-              <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-[#1A1A1A] text-xs font-bold text-[#F5F0EB] ring-2 ring-[#C9A96E]/30 shadow-2xs">
-                {user?.name?.charAt(0) || "A"}
+              <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-[#1A1A1A] text-xs font-bold text-[#F8F5F2] ring-2 ring-[#C9A27E]/30 shadow-sm">
+                {user?.name?.charAt(0) || "H"}
                 <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
               </div>
               <div className="hidden text-left md:block">
                 <p className="text-xs font-bold leading-none text-[#1A1A1A]">
                   {user?.name || "Admin"}
                 </p>
-                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#7A6543]">
+                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#B8906A]">
                   {user?.role || "Super Admin"}
                 </p>
               </div>
               <ChevronDown
                 size={14}
                 className={cn(
-                  "hidden text-stone-400 transition-transform duration-200 md:block",
+                  "hidden text-[#1A1A1A]/40 transition-transform duration-200 md:block",
                   profileOpen && "rotate-180"
                 )}
               />
@@ -471,19 +468,19 @@ export default function AdminHeader() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.96 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-full mt-2 w-64 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl z-50"
+                  className="absolute right-0 top-full mt-2 w-64 overflow-hidden rounded-sm border border-[#1A1A1A]/10 bg-white shadow-lg z-50"
                 >
-                  <div className="border-b border-stone-100 bg-stone-50/70 px-4 py-3.5">
+                  <div className="border-b border-[#1A1A1A]/10 bg-[#F8F5F2] px-4 py-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1A1A1A] text-sm font-bold text-[#F5F0EB] ring-2 ring-[#C9A96E]/40">
-                        {user?.name?.charAt(0) || "A"}
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1A1A1A] text-sm font-bold text-[#F8F5F2] ring-2 ring-[#C9A27E]/40">
+                        {user?.name?.charAt(0) || "H"}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-[#1A1A1A]">
                           {user?.name || "Admin User"}
                         </p>
-                        <p className="truncate text-xs text-stone-500">
-                          {user?.email || "admin@aanneddles.com"}
+                        <p className="truncate text-xs text-[#1A1A1A]/50">
+                          {user?.email || "admin@heercollection.com"}
                         </p>
                       </div>
                     </div>
@@ -493,17 +490,17 @@ export default function AdminHeader() {
                     <Link
                       href="/admin/settings/users"
                       onClick={() => setProfileOpen(false)}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium text-stone-700 transition-colors hover:bg-stone-100 hover:text-[#1A1A1A]"
+                      className="flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-xs font-medium text-[#1A1A1A] transition-colors hover:bg-[#E8DDD4]/40 hover:text-[#1A1A1A]"
                     >
-                      <User size={16} className="text-stone-400" />
+                      <User size={16} className="text-[#1A1A1A]/40" />
                       Account Settings
                     </Link>
                     <Link
                       href="/admin/settings"
                       onClick={() => setProfileOpen(false)}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium text-stone-700 transition-colors hover:bg-stone-100 hover:text-[#1A1A1A]"
+                      className="flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-xs font-medium text-[#1A1A1A] transition-colors hover:bg-[#E8DDD4]/40 hover:text-[#1A1A1A]"
                     >
-                      <Settings size={16} className="text-stone-400" />
+                      <Settings size={16} className="text-[#1A1A1A]/40" />
                       Store Preferences
                     </Link>
                     <a
@@ -511,19 +508,19 @@ export default function AdminHeader() {
                       target="_blank"
                       rel="noreferrer"
                       onClick={() => setProfileOpen(false)}
-                      className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-medium text-stone-700 transition-colors hover:bg-stone-100 hover:text-[#1A1A1A]"
+                      className="flex w-full items-center justify-between rounded-sm px-3 py-2.5 text-xs font-medium text-[#1A1A1A] transition-colors hover:bg-[#E8DDD4]/40 hover:text-[#1A1A1A]"
                     >
                       <span className="flex items-center gap-3">
-                        <ExternalLink size={16} className="text-stone-400" />
+                        <ExternalLink size={16} className="text-[#1A1A1A]/40" />
                         View Live Website
                       </span>
                     </a>
                   </div>
 
-                  <div className="border-t border-stone-100 p-1.5">
+                  <div className="border-t border-[#1A1A1A]/10 p-1.5">
                     <button
                       onClick={() => logout(queryClient)}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold text-[#8B1A1A] transition-colors hover:bg-red-50"
+                      className="flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50"
                     >
                       <LogOut size={16} />
                       Sign Out
@@ -545,7 +542,7 @@ export default function AdminHeader() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSearchModalOpen(false)}
-              className="fixed inset-0 bg-black/40 backdrop-blur-xs"
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm"
             />
 
             <motion.div
@@ -553,25 +550,25 @@ export default function AdminHeader() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -16 }}
               transition={{ duration: 0.18 }}
-              className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl z-50"
+              className="relative w-full max-w-xl overflow-hidden rounded-sm border border-[#1A1A1A]/10 bg-white shadow-lg z-50"
             >
               {/* Search Header Input */}
-              <div className="flex items-center border-b border-stone-100 px-4 py-3">
-                <Search size={18} className="text-[#C9A96E] shrink-0 mr-3" />
+              <div className="flex items-center border-b border-[#1A1A1A]/10 px-4 py-3">
+                <Search size={18} className="mr-3 shrink-0 text-[#C9A27E]" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search pages, orders, products..."
                   autoFocus
-                  className="w-full bg-transparent text-sm font-medium text-[#1A1A1A] placeholder-stone-400 outline-none"
+                  className="w-full bg-transparent text-sm font-medium text-[#1A1A1A] placeholder-[#1A1A1A]/40 outline-none"
                 />
                 {searchQuery ? (
-                  <button onClick={() => setSearchQuery("")} className="p-1 text-stone-400 hover:text-stone-600">
+                  <button onClick={() => setSearchQuery("")} className="p-1 text-[#1A1A1A]/40 hover:text-[#1A1A1A]">
                     <X size={16} />
                   </button>
                 ) : (
-                  <button onClick={() => setSearchModalOpen(false)} className="rounded-lg p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600">
+                  <button onClick={() => setSearchModalOpen(false)} className="rounded-sm p-1 text-[#1A1A1A]/40 hover:bg-[#E8DDD4]/40 hover:text-[#1A1A1A]">
                     <X size={18} />
                   </button>
                 )}
@@ -580,12 +577,12 @@ export default function AdminHeader() {
               {/* Quick Results List */}
               <div className="max-h-96 overflow-y-auto p-2">
                 {filteredSearchItems.length === 0 ? (
-                  <div className="py-10 text-center text-xs text-stone-400">
+                  <div className="py-10 text-center text-xs text-[#1A1A1A]/40">
                     No results found for &ldquo;{searchQuery}&rdquo;
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#1A1A1A]/40">
                       Quick Links
                     </div>
                     {filteredSearchItems.map((item) => {
@@ -597,15 +594,15 @@ export default function AdminHeader() {
                             router.push(item.href);
                             setSearchModalOpen(false);
                           }}
-                          className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-xs font-medium text-stone-700 transition-colors hover:bg-[#C9A96E]/10 hover:text-[#7A6543]"
+                          className="flex w-full items-center justify-between rounded-sm px-3 py-2.5 text-left text-xs font-medium text-[#1A1A1A] transition-colors hover:bg-[#C9A27E]/10 hover:text-[#B8906A]"
                         >
                           <span className="flex items-center gap-3">
-                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-100 text-stone-600">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-[#E8DDD4]/50 text-[#1A1A1A]/60">
                               <Icon size={14} />
                             </div>
                             <span>{item.label}</span>
                           </span>
-                          <span className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-[#1A1A1A]/40">
                             {item.category}
                           </span>
                         </button>
@@ -616,9 +613,9 @@ export default function AdminHeader() {
               </div>
 
               {/* Footer status */}
-              <div className="flex items-center justify-between border-t border-stone-100 bg-stone-50 px-4 py-2 text-[11px] text-stone-400">
+              <div className="flex items-center justify-between border-t border-[#1A1A1A]/10 bg-[#F8F5F2] px-4 py-2 text-[11px] text-[#1A1A1A]/40">
                 <span>Navigate with click or arrow keys</span>
-                <kbd className="rounded border border-stone-200 bg-white px-1 font-mono text-[10px]">ESC to close</kbd>
+                <kbd className="rounded-sm border border-[#1A1A1A]/10 bg-white px-1 font-mono text-[10px]">ESC to close</kbd>
               </div>
             </motion.div>
           </div>

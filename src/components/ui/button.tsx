@@ -5,20 +5,22 @@ import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = {
-  default: "bg-[#C9A96E] text-[#1A1A1A] hover:bg-[#b8955d] shadow-sm",
-  destructive: "bg-red-600 text-white hover:bg-red-700 shadow-sm",
+  default: "bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/90",
+  destructive: "bg-red-500 text-white hover:bg-red-600",
   outline:
-    "border border-[#C9A96E]/30 bg-transparent text-[#1A1A1A] hover:bg-[#C9A96E]/10",
-  secondary: "bg-gray-100 text-[#1A1A1A] hover:bg-gray-200 shadow-sm",
-  ghost: "text-[#1A1A1A] hover:bg-[#C9A96E]/10",
-  link: "text-[#7A6543] underline-offset-4 hover:underline",
+    "border border-[#1A1A1A]/20 bg-transparent text-[#1A1A1A] hover:bg-[#1A1A1A]/5",
+  secondary: "bg-[#E8DDD4] text-[#1A1A1A] hover:bg-[#E8DDD4]/80",
+  ghost: "hover:bg-[#E8DDD4]/50",
+  link: "text-[#C9A27E] underline-offset-4 hover:underline",
+  gold: "bg-[#C9A27E] text-white hover:bg-[#C9A27E]/90",
 };
 
 const buttonSizes = {
-  sm: "h-8 px-3 text-xs rounded-md",
-  default: "h-10 px-5 text-sm rounded-lg",
-  lg: "h-12 px-8 text-base rounded-lg",
-  icon: "h-10 w-10 rounded-lg",
+  sm: "h-9 px-4 text-sm rounded-sm",
+  default: "h-10 px-6 py-2 text-sm rounded-sm",
+  lg: "h-12 px-8 text-base rounded-sm",
+  xl: "h-14 px-10 text-lg rounded-sm",
+  icon: "h-10 w-10 rounded-sm",
 };
 
 export interface ButtonProps
@@ -47,7 +49,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <Comp
         className={cn(
-          "inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A96E]/50 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+          "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A27E]/50 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
           buttonVariants[variant],
           buttonSizes[size],
           className

@@ -1,18 +1,14 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Save,
-  Instagram,
-  Facebook,
-  Youtube,
   Upload,
   Image as ImageIcon,
-  Globe,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +19,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { settingsSchema } from "@/lib/validations";
 import { useToast } from "@/components/ui/toast";
+import type { SiteSettings } from "@/types";
+import { adminSettingsService } from "@/lib/admin-services";
 
 type SettingsForm = {
   brandName: string;
@@ -30,35 +28,26 @@ type SettingsForm = {
   contactEmail: string;
   contactPhone: string;
   address: string;
+  taxRate?: number;
+  instagramHandle?: string;
+  marqueeText?: string;
   returnWindowDays: number;
   exchangeWindowDays: number;
-  socialLinks: {
-    instagram?: string;
-    facebook?: string;
-    tiktok?: string;
-    youtube?: string;
+};
+
+function mapSettings(s: SiteSettings): SettingsForm {
+  return {
+    brandName: s.brandName ?? "",
+    brandDescription: s.brandDescription ?? "",
+    contactEmail: s.contactEmail ?? "",
+    contactPhone: s.contactPhone ?? "",
+    address: s.address ?? "",
+    taxRate: s.taxRate,
+    instagramHandle: s.instagramHandle,
+    marqueeText: s.marqueeText,
+    returnWindowDays: s.returnWindowDays ?? 7,
+    exchangeWindowDays: s.exchangeWindowDays ?? 7,
   };
-};
-
-const MOCK_SETTINGS: SettingsForm = {
-  brandName: "AA Neddles",
-  brandDescription:
-    "AA Neddles is a luxury fashion brand rooted in Pakistani heritage, offering premium handcrafted clothing with timeless elegance.",
-  contactEmail: "support@aaneddles.com",
-  contactPhone: "+92 300 1234567",
-  address: "23-C, MM Alam Road, Gulberg III, Lahore, Punjab, Pakistan",
-  returnWindowDays: 14,
-  exchangeWindowDays: 30,
-  socialLinks: {
-    instagram: "https://instagram.com/aaneddles",
-    facebook: "https://facebook.com/aaneddles",
-    tiktok: "https://tiktok.com/@aaneddles",
-    youtube: "https://youtube.com/@aaneddles",
-  },
-};
-
-function saveSettings(_data: SettingsForm): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 800));
 }
 
 export default function SettingsPage() {
@@ -96,17 +85,27 @@ export default function SettingsPage() {
     [toast]
   );
 
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => adminSettingsService.getGeneral(),
+  });
+
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<SettingsForm>({
     resolver: zodResolver(settingsSchema) as any,
-    defaultValues: MOCK_SETTINGS,
+    defaultValues: settings ? mapSettings(settings) : undefined,
   });
 
+  useEffect(() => {
+    if (settings) reset(mapSettings(settings));
+  }, [settings, reset]);
+
   const saveMutation = useMutation({
-    mutationFn: saveSettings,
+    mutationFn: (data: SettingsForm) => adminSettingsService.updateGeneral(data),
     onSuccess: () => {
       toast("success", "Settings saved successfully");
     },
@@ -172,7 +171,7 @@ export default function SettingsPage() {
                       </label>
                       <div className="flex items-center gap-4">
                         <div
-                          className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-gray-200 bg-[#F5F0EB]/50 transition-colors hover:border-[#C9A96E]/50 cursor-pointer relative group"
+                          className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-sm border-2 border-dashed border-[#1A1A1A]/10 bg-[#F8F5F2]/50 transition-colors hover:border-[#C9A27E]/50 cursor-pointer relative group"
                           onClick={() => logoInputRef.current?.click()}
                         >
                           {logoPreview ? (
@@ -194,7 +193,7 @@ export default function SettingsPage() {
                               </button>
                             </>
                           ) : (
-                            <ImageIcon className="h-8 w-8 text-gray-300" />
+                            <ImageIcon className="h-8 w-8 text-[#1A1A1A]/30" />
                           )}
                         </div>
                         <input
@@ -214,7 +213,7 @@ export default function SettingsPage() {
                             <Upload className="h-4 w-4" />
                             {logoPreview ? "Change Logo" : "Upload Logo"}
                           </Button>
-                          <p className="text-xs text-gray-400">
+                          <p className="text-xs text-[#1A1A1A]/40">
                             Recommended: 200x200px, PNG or SVG
                           </p>
                         </div>
@@ -226,7 +225,7 @@ export default function SettingsPage() {
                       </label>
                       <div className="flex items-center gap-4">
                         <div
-                          className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-200 bg-[#F5F0EB]/50 transition-colors hover:border-[#C9A96E]/50 cursor-pointer relative group"
+                          className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-sm border-2 border-dashed border-[#1A1A1A]/10 bg-[#F8F5F2]/50 transition-colors hover:border-[#C9A27E]/50 cursor-pointer relative group"
                           onClick={() => faviconInputRef.current?.click()}
                         >
                           {faviconPreview ? (
@@ -248,7 +247,7 @@ export default function SettingsPage() {
                               </button>
                             </>
                           ) : (
-                            <ImageIcon className="h-5 w-5 text-gray-300" />
+                            <ImageIcon className="h-5 w-5 text-[#1A1A1A]/30" />
                           )}
                         </div>
                         <input
@@ -268,7 +267,7 @@ export default function SettingsPage() {
                             <Upload className="h-4 w-4" />
                             {faviconPreview ? "Change Favicon" : "Upload Favicon"}
                           </Button>
-                          <p className="text-xs text-gray-400">
+                          <p className="text-xs text-[#1A1A1A]/40">
                             Recommended: 32x32px, ICO or PNG
                           </p>
                         </div>
@@ -310,31 +309,33 @@ export default function SettingsPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Social Links</CardTitle>
+                  <CardTitle>Instagram Storefront Feed</CardTitle>
                   <CardDescription>
-                    Connect your social media profiles
+                    Configure the Instagram account used by the storefront feed
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-5">
+                <CardContent>
                   <Input
-                    label="Instagram URL"
-                    {...register("socialLinks.instagram")}
-                    icon={<Instagram className="h-4 w-4" />}
+                    label="Instagram Account Handle"
+                    placeholder="@heercollection"
+                    {...register("instagramHandle")}
                   />
-                  <Input
-                    label="Facebook URL"
-                    {...register("socialLinks.facebook")}
-                    icon={<Facebook className="h-4 w-4" />}
-                  />
-                  <Input
-                    label="TikTok URL"
-                    {...register("socialLinks.tiktok")}
-                    icon={<Globe className="h-4 w-4" />}
-                  />
-                  <Input
-                    label="YouTube URL"
-                    {...register("socialLinks.youtube")}
-                    icon={<Youtube className="h-4 w-4" />}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Storefront Marquee Bar</CardTitle>
+                  <CardDescription>
+                    Configure the scrolling announcement ticker on the homepage
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Textarea
+                    label="Marquee Ticker Text"
+                    placeholder="Enter ticker text separated by bullet points..."
+                    rows={2}
+                    {...register("marqueeText")}
                   />
                 </CardContent>
               </Card>
@@ -347,7 +348,13 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                    <Input
+                      label="Tax Rate (%)"
+                      type="number"
+                      placeholder="5"
+                      {...register("taxRate", { valueAsNumber: true })}
+                    />
                     <Input
                       label="Return Window (Days)"
                       type="number"
@@ -377,9 +384,9 @@ export default function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="shipping">
-            <div className="py-8 text-center text-sm text-gray-500">
+            <div className="py-8 text-center text-sm text-[#1A1A1A]/50">
               Navigate to{" "}
-              <a href="/admin/settings/shipping" className="text-[#7A6543] hover:underline">
+              <a href="/admin/settings/shipping" className="text-[#B8906A] hover:underline">
                 Shipping Settings
               </a>{" "}
               to manage shipping configuration.
@@ -387,9 +394,9 @@ export default function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="seo">
-            <div className="py-8 text-center text-sm text-gray-500">
+            <div className="py-8 text-center text-sm text-[#1A1A1A]/50">
               Navigate to{" "}
-              <a href="/admin/settings/seo" className="text-[#7A6543] hover:underline">
+              <a href="/admin/settings/seo" className="text-[#B8906A] hover:underline">
                 SEO Settings
               </a>{" "}
               to manage search engine optimization defaults.
@@ -397,9 +404,9 @@ export default function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="users">
-            <div className="py-8 text-center text-sm text-gray-500">
+            <div className="py-8 text-center text-sm text-[#1A1A1A]/50">
               Navigate to{" "}
-              <a href="/admin/settings/users" className="text-[#7A6543] hover:underline">
+              <a href="/admin/settings/users" className="text-[#B8906A] hover:underline">
                 Admin Users
               </a>{" "}
               to manage team access and permissions.

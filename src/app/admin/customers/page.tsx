@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -23,6 +24,11 @@ import {
   Filter,
   X,
   Star,
+  CheckCircle2,
+  Package,
+  CreditCard,
+  Clock,
+  StickyNote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,9 +37,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -54,6 +57,10 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import type { Customer as CustomerDTO } from "@/types";
+import { adminCustomerService } from "@/lib/admin-services";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/api";
 
 interface Customer {
   id: string;
@@ -72,202 +79,71 @@ interface Customer {
   tier: "gold" | "silver" | "platinum";
 }
 
-const mockCustomers: Customer[] = [
-  {
-    id: "c1",
-    name: "Ayesha Khan",
-    email: "ayesha.khan@gmail.com",
-    phone: "+92 321 4567890",
-    avatar: "AK",
-    totalOrders: 23,
-    totalSpent: 345000,
-    lastOrder: "2026-07-15",
-    status: "active",
-    joinedDate: "2024-03-12",
-    addresses: [
-      { label: "Home", address: "42-B, Gulberg III", city: "Lahore", isDefault: true },
-      { label: "Office", address: "15, Mall Road, Cantt", city: "Lahore", isDefault: false },
-    ],
-    orders: [
-      { id: "ORD-7891", date: "2026-07-15", total: 28500, status: "delivered", items: 3 },
-      { id: "ORD-7845", date: "2026-06-28", total: 15200, status: "delivered", items: 1 },
-      { id: "ORD-7801", date: "2026-06-10", total: 42000, status: "delivered", items: 5 },
-      { id: "ORD-7756", date: "2026-05-22", total: 18900, status: "delivered", items: 2 },
-      { id: "ORD-7701", date: "2026-05-01", total: 32000, status: "delivered", items: 4 },
-    ],
-    notes: "VIP customer. Prefers silk fabrics. Birthday: September 14.",
-    tier: "platinum",
-  },
-  {
-    id: "c2",
-    name: "Fatima Ahmed",
-    email: "fatima.ahmed@outlook.com",
-    phone: "+92 300 1234567",
-    avatar: "FA",
-    totalOrders: 15,
-    totalSpent: 210000,
-    lastOrder: "2026-07-10",
-    status: "active",
-    joinedDate: "2024-06-20",
-    addresses: [
-      { label: "Home", address: "7, Clifton Block 5", city: "Karachi", isDefault: true },
-    ],
-    orders: [
-      { id: "ORD-7876", date: "2026-07-10", total: 19800, status: "delivered", items: 2 },
-      { id: "ORD-7823", date: "2026-06-15", total: 35000, status: "delivered", items: 3 },
-      { id: "ORD-7789", date: "2026-05-30", total: 12500, status: "delivered", items: 1 },
-    ],
-    notes: "Loves the bridal collection. Size: M.",
-    tier: "gold",
-  },
-  {
-    id: "c3",
-    name: "Noor Malik",
-    email: "noor.malik@yahoo.com",
-    phone: "+92 333 9876543",
-    avatar: "NM",
-    totalOrders: 8,
-    totalSpent: 95000,
-    lastOrder: "2026-07-05",
-    status: "active",
-    joinedDate: "2025-01-10",
-    addresses: [
-      { label: "Home", address: "22, F-8/2", city: "Islamabad", isDefault: true },
-      { label: "Parents", address: "5, DHA Phase 6", city: "Lahore", isDefault: false },
-    ],
-    orders: [
-      { id: "ORD-7855", date: "2026-07-05", total: 22000, status: "delivered", items: 2 },
-      { id: "ORD-7800", date: "2026-06-01", total: 16500, status: "delivered", items: 1 },
-    ],
-    notes: "Interested in couture pieces.",
+function mapCustomer(c: CustomerDTO): Customer {
+  const initials = c.name
+    .split(" ")
+    .map((part) => part[0])
+    .filter(Boolean)
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return {
+    id: c.id,
+    name: c.name,
+    email: c.email,
+    phone: c.phone ?? "",
+    avatar: c.avatar ?? initials,
+    totalOrders: c.totalOrders,
+    totalSpent: c.totalSpent,
+    lastOrder: c.lastOrderAt ?? c.createdAt,
+    status: c.isActive ? "active" : "inactive",
+    joinedDate: c.createdAt,
+    addresses: (c.addresses ?? []).map((a) => ({
+      label: a.label,
+      address: [a.addressLine1, a.addressLine2].filter(Boolean).join(", "),
+      city: a.city,
+      isDefault: a.isDefault ?? false,
+    })),
+    orders: [],
+    notes: c.notes ?? "",
     tier: "silver",
-  },
-  {
-    id: "c4",
-    name: "Hira Shah",
-    email: "hira.shah@hotmail.com",
-    phone: "+92 312 5551234",
-    avatar: "HS",
-    totalOrders: 31,
-    totalSpent: 520000,
-    lastOrder: "2026-07-16",
-    status: "active",
-    joinedDate: "2023-11-05",
-    addresses: [
-      { label: "Home", address: "10, Bahria Town Phase 4", city: "Rawalpindi", isDefault: true },
-    ],
-    orders: [
-      { id: "ORD-7899", date: "2026-07-16", total: 55000, status: "processing", items: 6 },
-      { id: "ORD-7888", date: "2026-07-12", total: 18900, status: "delivered", items: 2 },
-      { id: "ORD-7850", date: "2026-06-25", total: 42000, status: "delivered", items: 4 },
-      { id: "ORD-7812", date: "2026-06-08", total: 29000, status: "delivered", items: 3 },
-    ],
-    notes: "Top spender. Early access to new collections.",
-    tier: "platinum",
-  },
-  {
-    id: "c5",
-    name: "Zainab Raza",
-    email: "zainab.raza@gmail.com",
-    phone: "+92 345 6789012",
-    avatar: "ZR",
-    totalOrders: 5,
-    totalSpent: 67500,
-    lastOrder: "2026-06-20",
-    status: "active",
-    joinedDate: "2025-09-15",
-    addresses: [
-      { label: "Home", address:  "33, DHA Phase 2", city: "Lahore", isDefault: true },
-    ],
-    orders: [
-      { id: "ORD-7830", date: "2026-06-20", total: 24000, status: "delivered", items: 2 },
-      { id: "ORD-7780", date: "2026-05-18", total: 18500, status: "delivered", items: 1 },
-    ],
-    notes: "Referred by Ayesha Khan.",
-    tier: "silver",
-  },
-  {
-    id: "c6",
-    name: "Sana Javed",
-    email: "sana.javed@outlook.com",
-    phone: "+92 300 4443210",
-    avatar: "SJ",
-    totalOrders: 12,
-    totalSpent: 156000,
-    lastOrder: "2026-05-30",
-    status: "inactive",
-    joinedDate: "2024-08-22",
-    addresses: [
-      { label: "Home", address: "8, Nazimabad No. 3", city: "Karachi", isDefault: true },
-    ],
-    orders: [
-      { id: "ORD-7790", date: "2026-05-30", total: 14200, status: "delivered", items: 1 },
-      { id: "ORD-7730", date: "2026-04-15", total: 28000, status: "delivered", items: 3 },
-    ],
-    notes: "Last contacted about sale items.",
-    tier: "silver",
-  },
-  {
-    id: "c7",
-    name: "Mehreen Iqbal",
-    email: "mehreen.iqbal@gmail.com",
-    phone: "+92 322 8765432",
-    avatar: "MI",
-    totalOrders: 19,
-    totalSpent: 278000,
-    lastOrder: "2026-07-14",
-    status: "active",
-    joinedDate: "2024-02-14",
-    addresses: [
-      { label: "Home", address: "14, Wapda Town", city: "Lahore", isDefault: true },
-      { label: "Office", address: "5, Johar Town Block G", city: "Lahore", isDefault: false },
-    ],
-    orders: [
-      { id: "ORD-7893", date: "2026-07-14", total: 31000, status: "shipped", items: 3 },
-      { id: "ORD-7860", date: "2026-07-01", total: 19500, status: "delivered", items: 2 },
-      { id: "ORD-7810", date: "2026-06-05", total: 45000, status: "delivered", items: 5 },
-    ],
-    notes: "Enjoys festive collection. Prefers emerald tones.",
-    tier: "gold",
-  },
-  {
-    id: "c8",
-    name: "Rabia Tariq",
-    email: "rabia.tariq@yahoo.com",
-    phone: "+92 311 2345678",
-    avatar: "RT",
-    totalOrders: 3,
-    totalSpent: 28500,
-    lastOrder: "2026-04-12",
-    status: "inactive",
-    joinedDate: "2026-01-05",
-    addresses: [
-      { label: "Home", address: "20, Satellite Town", city: "Gujranwala", isDefault: true },
-    ],
-    orders: [
-      { id: "ORD-7720", date: "2026-04-12", total: 14500, status: "delivered", items: 1 },
-    ],
-    notes: "New customer. Size S.",
-    tier: "silver",
-  },
-];
+  };
+}
 
 const statusColors: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  inactive: "bg-stone-100 text-stone-500 border-stone-200",
+  inactive: "bg-[#E8DDD4]/40 text-[#1A1A1A]/50 border-[#E8DDD4]",
   processing: "bg-amber-50 text-amber-700 border-amber-200",
   shipped: "bg-blue-50 text-blue-700 border-blue-200",
   delivered: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
 const tierColors: Record<string, string> = {
-  platinum: "bg-[#C9A96E]/10 text-[#7A6543] border-[#C9A96E]/30",
+  platinum: "bg-[#C9A27E]/10 text-[#B8906A] border-[#C9A27E]/30",
   gold: "bg-amber-50 text-amber-700 border-amber-200",
-  silver: "bg-stone-100 text-stone-600 border-stone-200",
+  silver: "bg-[#E8DDD4]/40 text-[#1A1A1A]/60 border-[#E8DDD4]",
 };
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>(mockCustomers);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: customers = [] } = useQuery({
+    queryKey: ["customers"],
+    queryFn: async () => {
+      const res = await adminCustomerService.list();
+      return res.map(mapCustomer);
+    },
+  });
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<CustomerDTO> }) =>
+      adminCustomerService.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+    },
+    onError: (error: unknown) => {
+      toast("error", getErrorMessage(error));
+    },
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
@@ -304,11 +180,12 @@ export default function CustomersPage() {
   };
 
   const toggleCustomerStatus = (id: string) => {
-    setCustomers((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, status: c.status === "active" ? "inactive" : "active" } : c
-      )
-    );
+    const customer = customers.find((c) => c.id === id);
+    if (!customer) return;
+    updateMutation.mutate({
+      id,
+      data: { isActive: customer.status !== "active" },
+    });
   };
 
   const openDetail = (customer: Customer) => {
@@ -319,8 +196,12 @@ export default function CustomersPage() {
 
   const saveNotes = () => {
     if (selectedCustomer) {
-      setCustomers((prev) =>
-        prev.map((c) => (c.id === selectedCustomer.id ? { ...c, notes: editNotes } : c))
+      updateMutation.mutate(
+        {
+          id: selectedCustomer.id,
+          data: { notes: editNotes },
+        },
+        { onSuccess: () => toast("success", "Customer updated successfully") }
       );
     }
   };
@@ -330,8 +211,8 @@ export default function CustomersPage() {
   const avgSpent = totalRevenue / customers.length;
 
   return (
-    <div className="min-h-screen bg-[#F5F0EB]">
-      <div className="p-8 max-w-[1400px] mx-auto">
+    <div className="min-h-screen bg-[#F8F5F2]">
+      <div className="mx-auto w-full max-w-[1400px] min-w-0 p-4 sm:p-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -348,7 +229,7 @@ export default function CustomersPage() {
             </div>
             <Button
               variant="outline"
-              className="border-[#C9A96E] text-[#7A6543] hover:bg-[#C9A96E] hover:text-white font-light tracking-wide"
+              className="border-[#C9A27E] text-[#B8906A] hover:bg-[#C9A27E] hover:text-white font-light tracking-wide"
             >
               <Download className="w-4 h-4 mr-2" />
               Export CSV
@@ -377,7 +258,7 @@ export default function CustomersPage() {
                 <p className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
                   Total Revenue
                 </p>
-                <p className="text-2xl font-light text-[#7A6543] mt-1">
+                <p className="text-2xl font-light text-[#B8906A] mt-1">
                   {formatCurrency(totalRevenue)}
                 </p>
               </CardContent>
@@ -403,7 +284,7 @@ export default function CustomersPage() {
                     placeholder="Search by name, email, or phone..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                    className="pl-10 border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                   />
                 </div>
                 <div className="flex gap-2">
@@ -415,7 +296,7 @@ export default function CustomersPage() {
                         "font-light tracking-wide text-xs uppercase",
                         statusFilter === status
                           ? "bg-[#1A1A1A] text-white"
-                          : "border-stone-200 text-[#1A1A1A]/60 hover:border-[#C9A96E] hover:text-[#7A6543]"
+                          : "border-[#E8DDD4] text-[#1A1A1A]/60 hover:border-[#C9A27E] hover:text-[#B8906A]"
                       )}
                       onClick={() => setStatusFilter(status)}
                     >
@@ -428,14 +309,14 @@ export default function CustomersPage() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-stone-100">
+                    <TableRow className="border-[#1A1A1A]/10">
                       <TableHead className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
                         Customer
                       </TableHead>
                       <TableHead className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
                         <button
                           onClick={() => toggleSort("name")}
-                          className="flex items-center gap-1 hover:text-[#7A6543] transition-colors"
+                          className="flex items-center gap-1 hover:text-[#B8906A] transition-colors"
                         >
                           Name
                           <ArrowUpDown className="w-3 h-3" />
@@ -447,7 +328,7 @@ export default function CustomersPage() {
                       <TableHead className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
                         <button
                           onClick={() => toggleSort("totalOrders")}
-                          className="flex items-center gap-1 hover:text-[#7A6543] transition-colors"
+                          className="flex items-center gap-1 hover:text-[#B8906A] transition-colors"
                         >
                           Orders
                           <ArrowUpDown className="w-3 h-3" />
@@ -456,7 +337,7 @@ export default function CustomersPage() {
                       <TableHead className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
                         <button
                           onClick={() => toggleSort("totalSpent")}
-                          className="flex items-center gap-1 hover:text-[#7A6543] transition-colors"
+                          className="flex items-center gap-1 hover:text-[#B8906A] transition-colors"
                         >
                           Total Spent
                           <ArrowUpDown className="w-3 h-3" />
@@ -465,7 +346,7 @@ export default function CustomersPage() {
                       <TableHead className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
                         <button
                           onClick={() => toggleSort("lastOrder")}
-                          className="flex items-center gap-1 hover:text-[#7A6543] transition-colors"
+                          className="flex items-center gap-1 hover:text-[#B8906A] transition-colors"
                         >
                           Last Order
                           <ArrowUpDown className="w-3 h-3" />
@@ -474,7 +355,7 @@ export default function CustomersPage() {
                       <TableHead className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
                         Status
                       </TableHead>
-                      <TableHead className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
+                      <TableHead className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium w-16">
                         Actions
                       </TableHead>
                     </TableRow>
@@ -483,7 +364,7 @@ export default function CustomersPage() {
                     {sorted.map((customer) => (
                       <TableRow
                         key={customer.id}
-                        className="border-stone-100 hover:bg-[#F5F0EB]/30 cursor-pointer transition-colors"
+                        className="border-[#1A1A1A]/10 hover:bg-[#F8F5F2]/30 cursor-pointer transition-colors"
                         onClick={() => openDetail(customer)}
                       >
                         <TableCell>
@@ -503,7 +384,7 @@ export default function CustomersPage() {
                         <TableCell className="text-sm text-[#1A1A1A]/70 font-light">
                           {customer.totalOrders}
                         </TableCell>
-                        <TableCell className="text-sm font-medium text-[#7A6543]">
+                        <TableCell className="text-sm font-medium text-[#B8906A]">
                           {formatCurrency(customer.totalSpent)}
                         </TableCell>
                         <TableCell className="text-sm text-[#1A1A1A]/50 font-light">
@@ -519,14 +400,14 @@ export default function CustomersPage() {
                             {customer.status}
                           </Badge>
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
-                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                                 <MoreHorizontal className="w-4 h-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-white border-stone-100">
+                            <DropdownMenuContent align="end" className="bg-white border-[#1A1A1A]/10 z-50" onClick={(e) => e.stopPropagation()}>
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -577,50 +458,81 @@ export default function CustomersPage() {
       </div>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white border-0">
+        <DialogContent className="max-w-2xl p-0 gap-0 bg-white border-0 shadow-2xl rounded-xl overflow-hidden flex flex-col max-h-[90vh]">
           {selectedCustomer && (
             <>
-              <DialogHeader>
-                <DialogTitle className="text-xl font-light tracking-wide text-[#1A1A1A]">
-                  Customer Details
-                </DialogTitle>
-              </DialogHeader>
-
-              <div className="space-y-8">
-                <div className="flex items-start gap-5">
-                  <div className="w-16 h-16 rounded-full bg-[#1A1A1A] flex items-center justify-center text-white text-lg font-light tracking-wider shrink-0">
+              {/* ── Sticky Header ── */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8DDD4]/60 bg-white sticky top-0 z-10 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1A1A1A] to-[#3A3A3A] flex items-center justify-center text-white text-sm font-medium tracking-wider shadow-sm">
                     {selectedCustomer.avatar}
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1">
-                      <h3 className="text-lg font-medium text-[#1A1A1A]">
-                        {selectedCustomer.name}
-                      </h3>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-semibold text-[#1A1A1A] leading-tight">{selectedCustomer.name}</h2>
                       <Badge
                         className={cn(
-                          "text-[10px] uppercase tracking-wider font-medium border",
+                          "text-[9px] uppercase tracking-widest font-semibold border px-2 py-0.5",
                           tierColors[selectedCustomer.tier]
                         )}
                       >
                         {selectedCustomer.tier}
                       </Badge>
+                      <Badge
+                        className={cn(
+                          "text-[9px] uppercase tracking-widest font-semibold border px-2 py-0.5",
+                          statusColors[selectedCustomer.status]
+                        )}
+                      >
+                        {selectedCustomer.status}
+                      </Badge>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-[#1A1A1A]/50 font-light">
-                      <span className="flex items-center gap-1">
-                        <Mail className="w-3.5 h-3.5" />
-                        {selectedCustomer.email}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Phone className="w-3.5 h-3.5" />
-                        {selectedCustomer.phone}
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#1A1A1A]/30 mt-1 font-light">
-                      Member since {formatDate(selectedCustomer.joinedDate)}
-                    </p>
+                    <p className="text-xs text-[#1A1A1A]/40 font-light mt-0.5">Customer Details</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailOpen(false)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#1A1A1A]/40 hover:text-[#1A1A1A] hover:bg-[#F8F5F2] transition-all duration-150"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* ── Scrollable Body ── */}
+              <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6">
+
+                {/* Contact Info */}
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                  <span className="flex items-center gap-1.5 text-sm text-[#1A1A1A]/60 font-light">
+                    <Mail className="w-3.5 h-3.5 text-[#C9A27E]" />
+                    {selectedCustomer.email}
+                  </span>
+                  <span className="flex items-center gap-1.5 text-sm text-[#1A1A1A]/60 font-light">
+                    <Phone className="w-3.5 h-3.5 text-[#C9A27E]" />
+                    {selectedCustomer.phone || <span className="italic text-[#1A1A1A]/30">No phone</span>}
+                  </span>
+                  <span className="flex items-center gap-1.5 text-xs text-[#1A1A1A]/30 font-light ml-auto">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Member since {formatDate(selectedCustomer.joinedDate)}
+                  </span>
+                </div>
+
+                {/* Active Toggle Row */}
+                <div className="flex items-center justify-between px-4 py-3 bg-[#F8F5F2] rounded-lg border border-[#E8DDD4]/50">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className={cn("w-4 h-4", selectedCustomer.status === "active" ? "text-emerald-500" : "text-[#1A1A1A]/20")} />
+                    <span className="text-sm font-medium text-[#1A1A1A]">
+                      Account Status
+                    </span>
+                    <span className="text-xs text-[#1A1A1A]/40 font-light">
+                      — toggle to {selectedCustomer.status === "active" ? "deactivate" : "activate"} this customer
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-[#1A1A1A]/40 font-light">Active</span>
+                    <span className="text-xs text-[#1A1A1A]/40 font-light">
+                      {selectedCustomer.status === "active" ? "Active" : "Inactive"}
+                    </span>
                     <Switch
                       checked={selectedCustomer.status === "active"}
                       onCheckedChange={() => toggleCustomerStatus(selectedCustomer.id)}
@@ -628,121 +540,142 @@ export default function CustomersPage() {
                   </div>
                 </div>
 
-                <Separator className="bg-stone-100" />
+                <Separator className="bg-[#E8DDD4]/40" />
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-[#F5F0EB] rounded-lg p-4">
-                    <p className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
-                      Total Orders
-                    </p>
-                    <p className="text-xl font-light text-[#1A1A1A] mt-1">
-                      {selectedCustomer.totalOrders}
-                    </p>
+                {/* Stats Cards */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-[#F8F5F2] rounded-lg p-4 border border-[#E8DDD4]/50 flex flex-col gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Package className="w-3.5 h-3.5 text-[#C9A27E]" />
+                      <p className="text-[10px] uppercase tracking-widest text-[#1A1A1A]/40 font-semibold">Orders</p>
+                    </div>
+                    <p className="text-2xl font-light text-[#1A1A1A]">{selectedCustomer.totalOrders}</p>
                   </div>
-                  <div className="bg-[#F5F0EB] rounded-lg p-4">
-                    <p className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
-                      Total Spent
-                    </p>
-                    <p className="text-xl font-light text-[#7A6543] mt-1">
-                      {formatCurrency(selectedCustomer.totalSpent)}
-                    </p>
+                  <div className="bg-gradient-to-br from-[#C9A27E]/10 to-[#E8DDD4]/30 rounded-lg p-4 border border-[#C9A27E]/20 flex flex-col gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5 text-[#C9A27E]" />
+                      <p className="text-[10px] uppercase tracking-widest text-[#B8906A] font-semibold">Total Spent</p>
+                    </div>
+                    <p className="text-2xl font-semibold text-[#B8906A]">{formatCurrency(selectedCustomer.totalSpent)}</p>
                   </div>
-                  <div className="bg-[#F5F0EB] rounded-lg p-4">
-                    <p className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
-                      Last Order
-                    </p>
-                    <p className="text-xl font-light text-[#1A1A1A] mt-1">
-                      {formatDate(selectedCustomer.lastOrder)}
-                    </p>
+                  <div className="bg-[#F8F5F2] rounded-lg p-4 border border-[#E8DDD4]/50 flex flex-col gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-[#C9A27E]" />
+                      <p className="text-[10px] uppercase tracking-widest text-[#1A1A1A]/40 font-semibold">Last Order</p>
+                    </div>
+                    <p className="text-base font-medium text-[#1A1A1A] leading-tight">{formatDate(selectedCustomer.lastOrder)}</p>
                   </div>
                 </div>
 
+                {/* Addresses */}
                 <div>
-                  <h4 className="text-sm font-medium text-[#1A1A1A] mb-3 uppercase tracking-wider">
-                    Addresses
-                  </h4>
-                  <div className="space-y-2">
-                    {selectedCustomer.addresses.map((addr, i) => (
-                      <div
-                        key={i}
-                        className="flex items-start gap-3 p-3 bg-[#F5F0EB]/50 rounded-lg"
-                      >
-                        <MapPin className="w-4 h-4 text-[#7A6543] mt-0.5 shrink-0" />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-[#1A1A1A]">
-                              {addr.label}
-                            </span>
-                            {addr.isDefault && (
-                              <Badge className="text-[9px] uppercase tracking-wider bg-[#C9A96E]/10 text-[#7A6543] border border-[#C9A96E]/20">
-                                Default
-                              </Badge>
-                            )}
+                  <div className="flex items-center gap-2 mb-3">
+                    <MapPin className="w-4 h-4 text-[#C9A27E]" />
+                    <h4 className="text-xs font-semibold text-[#1A1A1A] uppercase tracking-widest">Addresses</h4>
+                  </div>
+                  {selectedCustomer.addresses.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-6 rounded-lg border border-dashed border-[#E8DDD4] bg-[#F8F5F2]/50">
+                      <MapPin className="w-6 h-6 text-[#1A1A1A]/15 mb-2" />
+                      <p className="text-xs text-[#1A1A1A]/30 font-light">No addresses on file</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {selectedCustomer.addresses.map((addr, i) => (
+                        <div key={i} className="flex items-start gap-3 p-3.5 bg-[#F8F5F2] rounded-lg border border-[#E8DDD4]/50">
+                          <div className="w-7 h-7 rounded-full bg-[#C9A27E]/10 flex items-center justify-center shrink-0">
+                            <MapPin className="w-3.5 h-3.5 text-[#B8906A]" />
                           </div>
-                          <p className="text-xs text-[#1A1A1A]/50 font-light">
-                            {addr.address}, {addr.city}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-sm font-medium text-[#1A1A1A] mb-3 uppercase tracking-wider">
-                    Order History
-                  </h4>
-                  <div className="space-y-2">
-                    {selectedCustomer.orders.map((order) => (
-                      <div
-                        key={order.id}
-                        className="flex items-center justify-between p-3 bg-[#F5F0EB]/50 rounded-lg"
-                      >
-                        <div className="flex items-center gap-4">
-                          <ShoppingBag className="w-4 h-4 text-[#1A1A1A]/30" />
-                          <div>
-                            <p className="text-sm font-medium text-[#1A1A1A]">{order.id}</p>
-                            <p className="text-xs text-[#1A1A1A]/40 font-light">
-                              {formatDate(order.date)} · {order.items} items
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-[#1A1A1A]">{addr.label}</span>
+                              {addr.isDefault && (
+                                <Badge className="text-[9px] uppercase tracking-wider bg-[#C9A27E]/10 text-[#B8906A] border border-[#C9A27E]/20 px-1.5">
+                                  Default
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-[#1A1A1A]/50 font-light mt-0.5 truncate">
+                              {addr.address}{addr.city ? `, ${addr.city}` : ""}
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-[#7A6543]">
-                            {formatCurrency(order.total)}
-                          </p>
-                          <Badge
-                            className={cn(
-                              "text-[9px] uppercase tracking-wider font-medium border",
-                              statusColors[order.status]
-                            )}
-                          >
-                            {order.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
+                {/* Order History */}
                 <div>
-                  <h4 className="text-sm font-medium text-[#1A1A1A] mb-3 uppercase tracking-wider">
-                    Notes
-                  </h4>
+                  <div className="flex items-center gap-2 mb-3">
+                    <ShoppingBag className="w-4 h-4 text-[#C9A27E]" />
+                    <h4 className="text-xs font-semibold text-[#1A1A1A] uppercase tracking-widest">Order History</h4>
+                    {selectedCustomer.orders.length > 0 && (
+                      <span className="ml-auto text-xs text-[#1A1A1A]/30 font-light">{selectedCustomer.orders.length} order{selectedCustomer.orders.length !== 1 ? "s" : ""}</span>
+                    )}
+                  </div>
+                  {selectedCustomer.orders.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-6 rounded-lg border border-dashed border-[#E8DDD4] bg-[#F8F5F2]/50">
+                      <ShoppingBag className="w-6 h-6 text-[#1A1A1A]/15 mb-2" />
+                      <p className="text-xs text-[#1A1A1A]/30 font-light">No orders placed yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {selectedCustomer.orders.map((order) => (
+                        <div key={order.id} className="flex items-center justify-between p-3.5 bg-[#F8F5F2] rounded-lg border border-[#E8DDD4]/50 hover:border-[#C9A27E]/30 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-7 h-7 rounded-full bg-[#1A1A1A]/5 flex items-center justify-center shrink-0">
+                              <ShoppingBag className="w-3.5 h-3.5 text-[#1A1A1A]/40" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-[#1A1A1A]">{order.id}</p>
+                              <p className="text-xs text-[#1A1A1A]/40 font-light">
+                                {formatDate(order.date)} &middot; {order.items} item{order.items !== 1 ? "s" : ""}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-[#B8906A]">{formatCurrency(order.total)}</p>
+                            <Badge className={cn("text-[9px] uppercase tracking-wider font-medium border mt-0.5", statusColors[order.status])}>
+                              {order.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <StickyNote className="w-4 h-4 text-[#C9A27E]" />
+                    <h4 className="text-xs font-semibold text-[#1A1A1A] uppercase tracking-widest">Internal Notes</h4>
+                  </div>
                   <Textarea
                     value={editNotes}
                     onChange={(e) => setEditNotes(e.target.value)}
-                    className="border-stone-200 bg-[#F5F0EB]/50 font-light text-sm min-h-[80px] focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
-                    placeholder="Add notes about this customer..."
+                    className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light text-sm min-h-[90px] focus:border-[#C9A27E] focus:ring-[#C9A27E]/20 rounded-lg resize-none"
+                    placeholder="Add private notes about this customer — visible only to admins..."
                   />
-                  <Button
-                    variant="outline"
-                    className="mt-2 border-[#C9A96E] text-[#7A6543] hover:bg-[#C9A96E] hover:text-white font-light text-xs tracking-wide"
-                    onClick={saveNotes}
-                  >
-                    Save Notes
-                  </Button>
                 </div>
+              </div>
+
+              {/* ── Sticky Footer ── */}
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#E8DDD4]/60 bg-[#F8F5F2]/60 sticky bottom-0 shrink-0">
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => setDetailOpen(false)}
+                  className="border-[#E8DDD4] text-[#1A1A1A]/60 hover:border-[#1A1A1A]/30 hover:text-[#1A1A1A] font-light text-sm tracking-wide px-5"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-[#1A1A1A] text-white hover:bg-[#2A2A2A] font-light text-sm tracking-wide px-6 shadow-sm"
+                  onClick={saveNotes}
+                >
+                  Save Notes
+                </Button>
               </div>
             </>
           )}

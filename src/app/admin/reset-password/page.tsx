@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -26,12 +26,20 @@ function getPasswordStrength(password: string): { score: number; label: string; 
   if (/[0-9]/.test(password)) score++;
   if (/[^A-Za-z0-9]/.test(password)) score++;
 
-  if (score <= 1) return { score, label: "Weak", color: "#8B1A1A" };
-  if (score <= 3) return { score, label: "Fair", color: "#C9A96E" };
+  if (score <= 1) return { score, label: "Weak", color: "#DC2626" };
+  if (score <= 3) return { score, label: "Fair", color: "#C9A27E" };
   return { score, label: "Strong", color: "#2D7D46" };
 }
 
 export default function ResetPasswordPage() {
+  return (
+    <Suspense>
+      <ResetPasswordForm />
+    </Suspense>
+  );
+}
+
+function ResetPasswordForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,7 +70,7 @@ export default function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#F5F0EB" }}>
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#F8F5F2" }}>
         <motion.div
           initial={{ opacity: 0, y: 30, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -73,26 +81,26 @@ export default function ResetPasswordPage() {
             <CardContent className="py-12 px-8 text-center">
               <div
                 className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5"
-                style={{ backgroundColor: "#8B1A1A15" }}
+                style={{ backgroundColor: "#DC262615" }}
               >
-                <AlertCircle className="w-7 h-7" style={{ color: "#8B1A1A" }} />
+                <AlertCircle className="w-7 h-7" style={{ color: "#DC2626" }} />
               </div>
               <h2
                 className="text-xl font-bold mb-2"
-                style={{ fontFamily: "'Playfair Display', serif", color: "#1A1A1A" }}
+                style={{ fontFamily: "'Georgia', 'Times New Roman', serif", color: "#1A1A1A" }}
               >
                 Invalid Link
               </h2>
               <p
                 className="text-sm mb-6"
-                style={{ fontFamily: "'Inter', sans-serif", color: "#1A1A1A80" }}
+                style={{ fontFamily: "'Geist', 'Segoe UI', sans-serif", color: "#1A1A1A80" }}
               >
                 This password reset link is invalid or missing a token. Please request a new one.
               </p>
               <Link
                 href="/admin/forgot-password"
                 className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors duration-200 hover:underline"
-                style={{ fontFamily: "'Inter', sans-serif", color: "#C9A96E" }}
+                style={{ fontFamily: "'Geist', 'Segoe UI', sans-serif", color: "#C9A27E" }}
               >
                 Request New Reset Link
               </Link>
@@ -133,7 +141,7 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#F5F0EB" }}>
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#F8F5F2" }}>
       <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -149,20 +157,20 @@ export default function ResetPasswordPage() {
             >
               <div
                 className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
-                style={{ backgroundColor: "#C9A96E15" }}
+                style={{ backgroundColor: "#C9A27E15" }}
               >
-                <Lock className="w-6 h-6" style={{ color: "#C9A96E" }} />
+                <Lock className="w-6 h-6" style={{ color: "#C9A27E" }} />
               </div>
               <h1
                 className="text-3xl font-bold tracking-tight mb-1"
-                style={{ fontFamily: "'Playfair Display', serif", color: "#1A1A1A" }}
+                style={{ fontFamily: "'Georgia', 'Times New Roman', serif", color: "#1A1A1A" }}
               >
                 Create New Password
               </h1>
-              <div className="w-12 h-0.5 mx-auto my-3" style={{ backgroundColor: "#C9A96E" }} />
+              <div className="w-12 h-0.5 mx-auto my-3" style={{ backgroundColor: "#C9A27E" }} />
               <p
                 className="text-sm leading-relaxed"
-                style={{ fontFamily: "'Inter', sans-serif", color: "#1A1A1A80" }}
+                style={{ fontFamily: "'Geist', 'Segoe UI', sans-serif", color: "#1A1A1A80" }}
               >
                 Your new password must be at least 8 characters and include uppercase, lowercase, and a number.
               </p>
@@ -184,22 +192,22 @@ export default function ResetPasswordPage() {
                 </div>
                 <h3
                   className="text-xl font-bold mb-2"
-                  style={{ fontFamily: "'Playfair Display', serif", color: "#1A1A1A" }}
+                  style={{ fontFamily: "'Georgia', 'Times New Roman', serif", color: "#1A1A1A" }}
                 >
                   Password Reset Successful
                 </h3>
                 <p
                   className="text-sm mb-6"
-                  style={{ fontFamily: "'Inter', sans-serif", color: "#1A1A1A80" }}
+                  style={{ fontFamily: "'Geist', 'Segoe UI', sans-serif", color: "#1A1A1A80" }}
                 >
                   Your password has been updated. You can now sign in with your new password.
                 </p>
                 <Link
                   href="/admin/login"
-                  className="inline-flex items-center justify-center h-12 px-8 text-sm font-semibold uppercase tracking-widest rounded-lg transition-all duration-300 hover:shadow-lg"
+                  className="inline-flex items-center justify-center h-12 px-8 text-sm font-semibold uppercase tracking-widest rounded-sm transition-all duration-300 hover:shadow-lg"
                   style={{
-                    fontFamily: "'Inter', sans-serif",
-                    backgroundColor: "#C9A96E",
+                    fontFamily: "'Geist', 'Segoe UI', sans-serif",
+                    backgroundColor: "#C9A27E",
                     color: "#FFFFFF",
                   }}
                 >
@@ -212,17 +220,17 @@ export default function ResetPasswordPage() {
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-start gap-2.5 p-3.5 rounded-lg mb-6"
+                className="flex items-start gap-2.5 p-3.5 rounded-sm mb-6"
                 style={{
-                  backgroundColor: "#8B1A1A10",
-                  border: "1px solid #8B1A1A25",
+                  backgroundColor: "#DC262610",
+                  border: "1px solid #DC262625",
                 }}
               >
-                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "#8B1A1A" }} />
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "#DC2626" }} />
                 <div>
                   <p
                     className="text-sm leading-relaxed"
-                    style={{ fontFamily: "'Inter', sans-serif", color: "#8B1A1A" }}
+                    style={{ fontFamily: "'Geist', 'Segoe UI', sans-serif", color: "#DC2626" }}
                   >
                     {error}
                   </p>
@@ -230,7 +238,7 @@ export default function ResetPasswordPage() {
                     <Link
                       href="/admin/forgot-password"
                       className="text-xs font-medium mt-1.5 inline-block underline transition-colors duration-200"
-                      style={{ fontFamily: "'Inter', sans-serif", color: "#C9A96E" }}
+                      style={{ fontFamily: "'Geist', 'Segoe UI', sans-serif", color: "#C9A27E" }}
                     >
                       Request a new reset link
                     </Link>
@@ -245,7 +253,7 @@ export default function ResetPasswordPage() {
                   <label
                     htmlFor="password"
                     className="text-xs font-semibold uppercase tracking-wider"
-                    style={{ fontFamily: "'Inter', sans-serif", color: "#1A1A1A" }}
+                    style={{ fontFamily: "'Geist', 'Segoe UI', sans-serif", color: "#1A1A1A" }}
                   >
                     New Password
                   </label>
@@ -255,10 +263,10 @@ export default function ResetPasswordPage() {
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter new password"
                       disabled={isLoading}
-                      className="h-12 px-4 pr-12 text-sm rounded-lg border transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-0"
+                      className="h-12 px-4 pr-12 text-sm rounded-sm border transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-0"
                       style={{
-                        fontFamily: "'Inter', sans-serif",
-                        borderColor: errors.password ? "#8B1A1A" : "#E5E0DB",
+                        fontFamily: "'Geist', 'Segoe UI', sans-serif",
+                        borderColor: errors.password ? "#DC2626" : "#1A1A1A33",
                         backgroundColor: "#FAFAF8",
                       }}
                       {...register("password")}
@@ -267,7 +275,7 @@ export default function ResetPasswordPage() {
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       disabled={isLoading}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md transition-colors duration-200"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-sm transition-colors duration-200"
                       style={{ color: "#1A1A1A80" }}
                       tabIndex={-1}
                     >
@@ -275,7 +283,7 @@ export default function ResetPasswordPage() {
                     </button>
                   </div>
                   {errors.password && (
-                    <p className="text-xs mt-1" style={{ fontFamily: "'Inter', sans-serif", color: "#8B1A1A" }}>
+                    <p className="text-xs mt-1" style={{ fontFamily: "'Geist', 'Segoe UI', sans-serif", color: "#DC2626" }}>
                       {errors.password.message}
                     </p>
                   )}
@@ -289,20 +297,20 @@ export default function ResetPasswordPage() {
                       <div className="flex items-center justify-between mb-1.5">
                         <span
                           className="text-xs font-medium"
-                          style={{ fontFamily: "'Inter', sans-serif", color: "#1A1A1A80" }}
+                          style={{ fontFamily: "'Geist', 'Segoe UI', sans-serif", color: "#1A1A1A80" }}
                         >
                           Password strength
                         </span>
                         <span
                           className="text-xs font-semibold"
-                          style={{ fontFamily: "'Inter', sans-serif", color: strength.color }}
+                          style={{ fontFamily: "'Geist', 'Segoe UI', sans-serif", color: strength.color }}
                         >
                           {strength.label}
                         </span>
                       </div>
                       <div
                         className="w-full h-1.5 rounded-full overflow-hidden"
-                        style={{ backgroundColor: "#E5E0DB" }}
+                        style={{ backgroundColor: "#1A1A1A33" }}
                       >
                         <motion.div
                           className="h-full rounded-full"
@@ -320,7 +328,7 @@ export default function ResetPasswordPage() {
                   <label
                     htmlFor="confirmPassword"
                     className="text-xs font-semibold uppercase tracking-wider"
-                    style={{ fontFamily: "'Inter', sans-serif", color: "#1A1A1A" }}
+                    style={{ fontFamily: "'Geist', 'Segoe UI', sans-serif", color: "#1A1A1A" }}
                   >
                     Confirm Password
                   </label>
@@ -330,10 +338,10 @@ export default function ResetPasswordPage() {
                       type={showConfirmPassword ? "text" : "password"}
                       placeholder="Confirm your password"
                       disabled={isLoading}
-                      className="h-12 px-4 pr-12 text-sm rounded-lg border transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-0"
+                      className="h-12 px-4 pr-12 text-sm rounded-sm border transition-all duration-200 focus-visible:ring-2 focus-visible:ring-offset-0"
                       style={{
-                        fontFamily: "'Inter', sans-serif",
-                        borderColor: errors.confirmPassword ? "#8B1A1A" : "#E5E0DB",
+                        fontFamily: "'Geist', 'Segoe UI', sans-serif",
+                        borderColor: errors.confirmPassword ? "#DC2626" : "#1A1A1A33",
                         backgroundColor: "#FAFAF8",
                       }}
                       {...register("confirmPassword")}
@@ -342,7 +350,7 @@ export default function ResetPasswordPage() {
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       disabled={isLoading}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md transition-colors duration-200"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-sm transition-colors duration-200"
                       style={{ color: "#1A1A1A80" }}
                       tabIndex={-1}
                     >
@@ -350,7 +358,7 @@ export default function ResetPasswordPage() {
                     </button>
                   </div>
                   {errors.confirmPassword && (
-                    <p className="text-xs mt-1" style={{ fontFamily: "'Inter', sans-serif", color: "#8B1A1A" }}>
+                    <p className="text-xs mt-1" style={{ fontFamily: "'Geist', 'Segoe UI', sans-serif", color: "#DC2626" }}>
                       {errors.confirmPassword.message}
                     </p>
                   )}
@@ -359,10 +367,10 @@ export default function ResetPasswordPage() {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full h-12 text-sm font-semibold uppercase tracking-widest rounded-lg transition-all duration-300 hover:shadow-lg"
+                  className="w-full h-12 text-sm font-semibold uppercase tracking-widest rounded-sm transition-all duration-300 hover:shadow-lg"
                   style={{
-                    fontFamily: "'Inter', sans-serif",
-                    backgroundColor: "#C9A96E",
+                    fontFamily: "'Geist', 'Segoe UI', sans-serif",
+                    backgroundColor: "#C9A27E",
                     color: "#FFFFFF",
                   }}
                 >
@@ -382,7 +390,7 @@ export default function ResetPasswordPage() {
               <Link
                 href="/admin/login"
                 className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors duration-200 hover:underline"
-                style={{ fontFamily: "'Inter', sans-serif", color: "#C9A96E" }}
+                style={{ fontFamily: "'Geist', 'Segoe UI', sans-serif", color: "#C9A27E" }}
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 Back to Sign In

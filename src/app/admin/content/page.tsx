@@ -23,8 +23,8 @@ const sections = [
     href: "/admin/content/banners",
     icon: Image,
     count: 10,
-    color: "from-[#1A1A1A]/5 to-[#C9A96E]/10",
-    iconColor: "text-[#7A6543]",
+    color: "from-[#1A1A1A]/5 to-[#C9A27E]/10",
+    iconColor: "text-[#B8906A]",
   },
   {
     title: "Editorial",
@@ -32,8 +32,8 @@ const sections = [
     href: "/admin/content/editorial",
     icon: BookOpen,
     count: 5,
-    color: "from-[#8B1A1A]/5 to-[#C9A96E]/5",
-    iconColor: "text-[#8B1A1A]",
+    color: "from-[#DC2626]/5 to-[#C9A27E]/5",
+    iconColor: "text-[#DC2626]",
   },
   {
     title: "Testimonials",
@@ -41,8 +41,8 @@ const sections = [
     href: "/admin/content/testimonials",
     icon: Star,
     count: 7,
-    color: "from-amber-50 to-[#C9A96E]/5",
-    iconColor: "text-[#7A6543]",
+    color: "from-amber-50 to-[#C9A27E]/5",
+    iconColor: "text-[#B8906A]",
   },
   {
     title: "FAQs",
@@ -50,7 +50,7 @@ const sections = [
     href: "/admin/content/faqs",
     icon: HelpCircle,
     count: 11,
-    color: "from-blue-50 to-[#C9A96E]/5",
+    color: "from-blue-50 to-[#C9A27E]/5",
     iconColor: "text-blue-500",
   },
   {
@@ -59,7 +59,7 @@ const sections = [
     href: "/admin/content/pages",
     icon: FileText,
     count: 6,
-    color: "from-emerald-50 to-[#C9A96E]/5",
+    color: "from-emerald-50 to-[#C9A27E]/5",
     iconColor: "text-emerald-500",
   },
   {
@@ -68,7 +68,7 @@ const sections = [
     href: "/admin/content/locations",
     icon: MapPin,
     count: 4,
-    color: "from-purple-50 to-[#C9A96E]/5",
+    color: "from-purple-50 to-[#C9A27E]/5",
     iconColor: "text-purple-500",
   },
   {
@@ -77,15 +77,15 @@ const sections = [
     href: "/admin/content/careers",
     icon: Briefcase,
     count: 5,
-    color: "from-rose-50 to-[#C9A96E]/5",
+    color: "from-rose-50 to-[#C9A27E]/5",
     iconColor: "text-rose-500",
   },
 ];
 
 export default function ContentPage() {
   return (
-    <div className="min-h-screen bg-[#F5F0EB]">
-      <div className="p-8 max-w-[1200px] mx-auto">
+    <div className="min-h-screen bg-[#F8F5F2]">
+      <div className="mx-auto w-full max-w-[1200px] min-w-0 p-4 sm:p-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -119,7 +119,7 @@ export default function ContentPage() {
                       <CardContent className="p-6">
                         <div
                           className={cn(
-                            "w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center mb-4",
+                            "w-12 h-12 rounded-sm bg-gradient-to-br flex items-center justify-center mb-4",
                             section.color
                           )}
                         >
@@ -127,18 +127,18 @@ export default function ContentPage() {
                         </div>
                         <div className="flex items-start justify-between">
                           <div>
-                            <h3 className="font-medium text-[#1A1A1A] group-hover:text-[#7A6543] transition-colors">
+                            <h3 className="font-medium text-[#1A1A1A] group-hover:text-[#B8906A] transition-colors">
                               {section.title}
                             </h3>
                             <p className="text-sm text-[#1A1A1A]/40 font-light mt-1">
                               {section.description}
                             </p>
                           </div>
-                          <span className="text-xs text-[#1A1A1A]/20 font-light bg-[#F5F0EB] rounded-full px-2.5 py-1 shrink-0 ml-3">
+                          <span className="text-xs text-[#1A1A1A]/20 font-light bg-[#F8F5F2] rounded-full px-2.5 py-1 shrink-0 ml-3">
                             {section.count}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1 mt-4 text-xs text-[#7A6543] font-light opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1 mt-4 text-xs text-[#B8906A] font-light opacity-0 group-hover:opacity-100 transition-opacity">
                           <span>Manage</span>
                           <ChevronRight className="w-3 h-3" />
                         </div>

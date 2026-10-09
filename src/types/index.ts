@@ -19,6 +19,20 @@ export interface AuthState {
   isLoading: boolean;
 }
 
+export interface Size {
+  id: string;
+  name: string;
+  label: string;
+  inStock: boolean;
+}
+
+export interface Color {
+  id: string;
+  name: string;
+  hex: string;
+  swatch?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -28,6 +42,7 @@ export interface Product {
   price: number;
   compareAtPrice?: number;
   costPrice?: number;
+  currency?: string;
   sku: string;
   barcode?: string;
   stock: number;
@@ -37,9 +52,25 @@ export interface Product {
   isFeatured: boolean;
   isNewArrival: boolean;
   isBestSeller: boolean;
+  inStock?: boolean;
+  rating?: number;
+  reviewCount?: number;
+  collection?: string;
+  thumbnail?: string;
   images: ProductImage[];
+  categoryId?: string;
   categories: Category[];
   variants?: ProductVariant[];
+  sizes?: Size[];
+  colors?: Color[];
+  materials?: string[];
+  careInstructions?: string[];
+  fabric?: string;
+  descriptionSections?: {
+    color?: string;
+    note?: string;
+    sections: { title: string; items: string[] }[];
+  };
   seoTitle?: string;
   seoDescription?: string;
   tags: string[];
@@ -61,6 +92,9 @@ export interface ProductVariant {
   price: number;
   stock: number;
   options: Record<string, string>;
+  color?: Color;
+  size?: Size;
+  inStock?: boolean;
 }
 
 export interface Category {
@@ -89,6 +123,13 @@ export interface Order {
   items: OrderItem[];
   subtotal: number;
   shippingCost: number;
+  shippingBreakdown?: {
+    deliveryMethod?: "standard" | "express" | "store_pickup";
+    baseCharge?: number;
+    additionalCharge?: number;
+    shippingCost?: number;
+    isFreeStandard?: boolean;
+  };
   discount: number;
   codFee: number;
   total: number;
@@ -99,6 +140,10 @@ export interface Order {
   billingAddress?: Address;
   trackingNumber?: string;
   trackingUrl?: string;
+  courierName?: string | null;
+  estimatedDelivery?: string | null;
+  cancellationReason?: string | null;
+  refundAmount?: number | null;
   notes?: string;
   internalNotes?: string;
   statusHistory: OrderStatusEntry[];
@@ -106,13 +151,45 @@ export interface Order {
   updatedAt: string;
 }
 
+/** Statuses that have a dedicated transactional email design. */
+export type OrderEmailStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "PROCESSING"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED";
+
+export interface OrderEmailPreview {
+  status: OrderEmailStatus;
+  subject: string;
+  preheader: string;
+  headline: string;
+  html: string;
+  text: string;
+}
+
+export interface OrderEmailPreviewData {
+  orderNumber: string;
+  customerEmail: string | null;
+  statuses: OrderEmailStatus[];
+  emails: OrderEmailPreview[];
+}
+
+/** The API helper unwraps `data`, so service methods return the inner shape. */
+export type OrderEmailPreviewResponse = OrderEmailPreviewData;
+
+export interface OrderEmailResendResult {
+  status: OrderEmailStatus;
+  to: string;
+  subject: string;
+}
+
 export type OrderStatus =
   | "pending"
   | "confirmed"
   | "processing"
-  | "quality_check"
   | "shipped"
-  | "out_for_delivery"
   | "delivered"
   | "cancelled"
   | "returned";
@@ -131,6 +208,8 @@ export interface OrderItem {
   quantity: number;
   price: number;
   total: number;
+  size?: string;
+  color?: string;
 }
 
 export interface OrderStatusEntry {
@@ -186,11 +265,24 @@ export interface Testimonial {
   id: string;
   customerName: string;
   customerImage?: string;
+  location?: string;
   content: string;
   rating: number;
   type: "gallery" | "video" | "instagram" | "story";
   image?: string;
   videoUrl?: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface Collection {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  image?: string;
+  productCount?: number;
   isActive: boolean;
   sortOrder: number;
   createdAt: string;
@@ -260,21 +352,6 @@ export interface Transaction {
   createdAt: string;
 }
 
-export interface Review {
-  id: string;
-  customerName: string;
-  customerEmail: string;
-  product: Product;
-  productId: string;
-  rating: number;
-  title?: string;
-  comment: string;
-  isVerified: boolean;
-  isApproved: boolean;
-  images?: string[];
-  createdAt: string;
-}
-
 export interface CMSPage {
   id: string;
   title: string;
@@ -317,14 +394,11 @@ export interface SiteSettings {
   shippingCost: number;
   freeShippingThreshold: number;
   codFee: number;
+  taxRate?: number;
+  instagramHandle?: string;
+  marqueeText?: string;
   returnWindowDays: number;
   exchangeWindowDays: number;
-  socialLinks: {
-    instagram?: string;
-    facebook?: string;
-    tiktok?: string;
-    youtube?: string;
-  };
   seoDefaults: {
     metaTitle: string;
     metaDescription: string;

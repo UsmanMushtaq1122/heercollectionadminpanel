@@ -16,8 +16,8 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
       role="switch"
       aria-checked={checked}
       className={cn(
-        "peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A96E]/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-        checked ? "bg-[#C9A96E]" : "bg-gray-200",
+        "peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A27E]/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        checked ? "bg-[#C9A27E]" : "bg-[#1A1A1A]/20",
         className
       )}
       ref={ref}

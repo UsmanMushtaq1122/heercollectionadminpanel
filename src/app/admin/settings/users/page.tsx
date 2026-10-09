@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
   Pencil,
@@ -39,59 +39,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { User, Role, ROLE_PERMISSIONS } from "@/types";
-
-const MOCK_USERS: User[] = [
-  {
-    id: "u1",
-    name: "Ahmed Khan",
-    email: "ahmed@aaneddles.com",
-    role: "super_admin",
-    avatar: undefined,
-    isActive: true,
-    lastLogin: "2026-07-18T09:00:00Z",
-    createdAt: "2025-01-01T00:00:00Z",
-  },
-  {
-    id: "u2",
-    name: "Fatima Shah",
-    email: "fatima@aaneddles.com",
-    role: "admin",
-    avatar: undefined,
-    isActive: true,
-    lastLogin: "2026-07-17T14:30:00Z",
-    createdAt: "2025-03-15T00:00:00Z",
-  },
-  {
-    id: "u3",
-    name: "Omar Raza",
-    email: "omar@aaneddles.com",
-    role: "staff",
-    avatar: undefined,
-    isActive: true,
-    lastLogin: "2026-07-16T11:15:00Z",
-    createdAt: "2025-06-20T00:00:00Z",
-  },
-  {
-    id: "u4",
-    name: "Zara Malik",
-    email: "zara@aaneddles.com",
-    role: "content_manager",
-    avatar: undefined,
-    isActive: true,
-    lastLogin: "2026-07-15T16:45:00Z",
-    createdAt: "2025-09-01T00:00:00Z",
-  },
-  {
-    id: "u5",
-    name: "Bilal Ahmad",
-    email: "bilal@aaneddles.com",
-    role: "staff",
-    avatar: undefined,
-    isActive: false,
-    lastLogin: "2026-05-10T08:20:00Z",
-    createdAt: "2025-11-10T00:00:00Z",
-  },
-];
+import { adminSettingsService } from "@/lib/admin-services";
 
 const ROLE_META: Record<
   Role,
@@ -99,12 +47,12 @@ const ROLE_META: Record<
 > = {
   super_admin: {
     label: "Super Admin",
-    color: "bg-[#8B1A1A]/10 text-[#8B1A1A] border border-[#8B1A1A]/20",
+    color: "bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/20",
     icon: <Crown className="h-4 w-4" />,
   },
   admin: {
     label: "Admin",
-    color: "bg-[#C9A96E]/15 text-[#7A6543] border border-[#C9A96E]/20",
+    color: "bg-[#C9A27E]/15 text-[#B8906A] border border-[#C9A27E]/20",
     icon: <Shield className="h-4 w-4" />,
   },
   staff: {
@@ -118,6 +66,16 @@ const ROLE_META: Record<
     icon: <FileText className="h-4 w-4" />,
   },
 };
+
+const FALLBACK_ROLE_META = {
+  label: "Admin",
+  color: "bg-[#C9A27E]/15 text-[#B8906A] border border-[#C9A27E]/20",
+  icon: <Shield className="h-4 w-4" />,
+};
+
+function getRoleMeta(role: string) {
+  return ROLE_META[role.toLowerCase() as Role] ?? FALLBACK_ROLE_META;
+}
 
 const RESOURCES = [
   "Products",
@@ -201,25 +159,14 @@ const PERMISSIONS_DATA: Record<Role, Record<string, string[]>> = {
   },
 };
 
-function inviteUser(_data: {
-  name: string;
-  email: string;
-  role: string;
-}): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 800));
-}
-
-function deactivateUser(_id: string): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 500));
-}
-
-function removeUser(_id: string): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 500));
-}
-
 export default function AdminUsersPage() {
   const { toast } = useToast();
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
+  const queryClient = useQueryClient();
+  const { data: users = [] } = useQuery({
+    queryKey: ["users"],
+    queryFn: () => adminSettingsService.getUsers(),
+  });
+  const invalidateUsers = () => queryClient.invalidateQueries({ queryKey: ["users"] });
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editRoleOpen, setEditRoleOpen] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
@@ -231,25 +178,23 @@ export default function AdminUsersPage() {
   const [inviteRole, setInviteRole] = useState("staff");
 
   const inviteMutation = useMutation({
-    mutationFn: inviteUser,
+    mutationFn: (data: { email: string; role: string }) =>
+      adminSettingsService.inviteUser(data),
     onSuccess: () => {
       toast("success", "Invitation sent successfully");
       setInviteOpen(false);
       setInviteName("");
       setInviteEmail("");
       setInviteRole("staff");
+      invalidateUsers();
     },
   });
 
   const deactivateMutation = useMutation({
-    mutationFn: deactivateUser,
+    mutationFn: (id: string) =>
+      adminSettingsService.updateUserStatus(id, !selectedUser?.isActive),
     onSuccess: () => {
       if (selectedUser) {
-        setUsers((prev) =>
-          prev.map((u) =>
-            u.id === selectedUser.id ? { ...u, isActive: !u.isActive } : u
-          )
-        );
         toast(
           "success",
           selectedUser.isActive
@@ -259,25 +204,25 @@ export default function AdminUsersPage() {
       }
       setDeactivateOpen(false);
       setSelectedUser(null);
+      invalidateUsers();
     },
   });
 
   const removeMutation = useMutation({
-    mutationFn: removeUser,
+    mutationFn: (id: string) => adminSettingsService.removeUser(id),
     onSuccess: () => {
       if (selectedUser) {
-        setUsers((prev) => prev.filter((u) => u.id !== selectedUser.id));
         toast("success", "User removed");
       }
       setRemoveOpen(false);
       setSelectedUser(null);
+      invalidateUsers();
     },
   });
 
   const handleInvite = () => {
     if (!inviteName || !inviteEmail) return;
     inviteMutation.mutate({
-      name: inviteName,
       email: inviteEmail,
       role: inviteRole,
     });
@@ -341,18 +286,18 @@ export default function AdminUsersPage() {
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm text-gray-500">
+                        <TableCell className="text-sm text-[#1A1A1A]/50">
                           {user.email}
                         </TableCell>
                         <TableCell>
                           <span
-                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_META[user.role].color}`}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${getRoleMeta(user.role).color}`}
                           >
-                            {ROLE_META[user.role].icon}
-                            {ROLE_META[user.role].label}
+                            {getRoleMeta(user.role).icon}
+                            {getRoleMeta(user.role).label}
                           </span>
                         </TableCell>
-                        <TableCell className="text-sm text-gray-500">
+                        <TableCell className="text-sm text-[#1A1A1A]/50">
                           {user.lastLogin
                             ? new Date(user.lastLogin).toLocaleDateString(
                                 "en-US",
@@ -414,7 +359,7 @@ export default function AdminUsersPage() {
 
           <TabsContent value="roles">
             <div className="space-y-6">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {(["super_admin", "admin", "staff", "content_manager"] as Role[]).map(
                   (role) => {
                     const meta = ROLE_META[role];
@@ -424,7 +369,7 @@ export default function AdminUsersPage() {
                         <CardHeader>
                           <div className="flex items-center gap-2">
                             <div
-                              className={`flex h-8 w-8 items-center justify-center rounded-lg ${meta.color}`}
+                              className={`flex h-8 w-8 items-center justify-center rounded-sm ${meta.color}`}
                             >
                               {meta.icon}
                             </div>
@@ -440,18 +385,18 @@ export default function AdminUsersPage() {
                                 ? ["Products", "Categories", "Orders", "Customers", "Content", "Reviews", "Coupons", "Payments", "Settings", "Analytics"].map((r) => (
                                     <div
                                       key={r}
-                                      className="flex items-center gap-1 text-xs text-gray-600"
+                                      className="flex items-center gap-1 text-xs text-[#1A1A1A]/60"
                                     >
-                                      <Check className="h-3 w-3 text-[#7A6543]" />
+                                      <Check className="h-3 w-3 text-[#B8906A]" />
                                       {r}
                                     </div>
                                   ))
                                 : perm.actions.map((action) => (
                                     <div
                                       key={`${perm.resource}-${action}`}
-                                      className="flex items-center gap-1 text-xs text-gray-600"
+                                      className="flex items-center gap-1 text-xs text-[#1A1A1A]/60"
                                     >
-                                      <Check className="h-3 w-3 text-[#7A6543]" />
+                                      <Check className="h-3 w-3 text-[#B8906A]" />
                                       {perm.resource}
                                     </div>
                                   ))
@@ -499,8 +444,8 @@ export default function AdminUsersPage() {
                               return (
                                 <TableCell key={action} className="text-center">
                                   {isSuperAdminAllowed && (
-                                    <div className="mx-auto flex h-6 w-6 items-center justify-center rounded-md bg-[#C9A96E]/15">
-                                      <Check className="h-3.5 w-3.5 text-[#7A6543]" />
+                                    <div className="mx-auto flex h-6 w-6 items-center justify-center rounded-sm bg-[#C9A27E]/15">
+                                      <Check className="h-3.5 w-3.5 text-[#B8906A]" />
                                     </div>
                                   )}
                                 </TableCell>
@@ -574,15 +519,13 @@ export default function AdminUsersPage() {
               defaultValue={selectedUser?.role}
               onChange={(e) => {
                 if (selectedUser) {
-                  setUsers((prev) =>
-                    prev.map((u) =>
-                      u.id === selectedUser.id
-                        ? { ...u, role: e.target.value as Role }
-                        : u
-                    )
-                  );
-                  toast("success", "Role updated");
-                  setEditRoleOpen(false);
+                  adminSettingsService
+                    .updateUserRole(selectedUser.id, e.target.value)
+                    .then(() => {
+                      toast("success", "Role updated");
+                      setEditRoleOpen(false);
+                      invalidateUsers();
+                    });
                 }
               }}
             >

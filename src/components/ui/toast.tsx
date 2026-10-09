@@ -41,15 +41,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const icons = {
-    success: <CheckCircle className="h-5 w-5 text-green-500" />,
+    success: <CheckCircle className="h-5 w-5 text-emerald-600" />,
     error: <AlertCircle className="h-5 w-5 text-red-500" />,
-    info: <Info className="h-5 w-5 text-blue-500" />,
+    info: <Info className="h-5 w-5 text-[#C9A27E]" />,
   };
 
   const bgColors = {
-    success: "bg-green-50 border-green-200",
+    success: "bg-emerald-50 border-emerald-200",
     error: "bg-red-50 border-red-200",
-    info: "bg-blue-50 border-blue-200",
+    info: "bg-[#C9A27E]/10 border-[#C9A27E]/20",
   };
 
   return (
@@ -65,7 +65,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               exit={{ opacity: 0, x: 50, scale: 0.95 }}
               transition={{ duration: 0.2 }}
               className={cn(
-                "pointer-events-auto flex min-w-[280px] items-center gap-3 rounded-xl border px-4 py-3 shadow-lg",
+                "pointer-events-auto flex min-w-[280px] items-center gap-3 rounded-sm border px-4 py-3 shadow-md",
                 bgColors[t.type]
               )}
             >
@@ -75,7 +75,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               </p>
               <button
                 onClick={() => removeToast(t.id)}
-                className="shrink-0 rounded-md p-1 text-gray-400 hover:text-gray-600"
+                className="shrink-0 rounded-sm p-1 text-[#1A1A1A]/40 hover:text-[#1A1A1A]"
               >
                 <X className="h-4 w-4" />
               </button>

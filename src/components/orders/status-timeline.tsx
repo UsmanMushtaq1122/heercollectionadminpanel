@@ -14,9 +14,22 @@ interface StatusTimelineProps {
   currentStatus: string
 }
 
-const statusOrder = ["pending", "processing", "shipped", "delivered"]
+const statusOrder = [
+  "pending",
+  "confirmed",
+  "processing",
+  "shipped",
+  "delivered",
+]
 
-const allStatuses = ["pending", "processing", "shipped", "delivered", "cancelled"]
+const allStatuses = [
+  "pending",
+  "confirmed",
+  "processing",
+  "shipped",
+  "delivered",
+  "cancelled",
+]
 
 export default function StatusTimeline({
   statusHistory,
@@ -42,7 +55,7 @@ export default function StatusTimeline({
   return (
     <div className="relative">
       {isCancelled && (
-        <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+        <div className="mb-4 p-3 rounded-sm bg-red-500/10 border border-red-500/20">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-red-400" />
             <span className="text-sm text-red-400 font-medium">Cancelled</span>
@@ -53,7 +66,7 @@ export default function StatusTimeline({
             </p>
           )}
           {statusHistory.find((h) => h.status === "cancelled") && (
-            <p className="text-xs text-[#F5F0EB]/30 mt-1 ml-4">
+            <p className="text-xs text-[#F8F5F2]/30 mt-1 ml-4">
               {formatDate(
                 statusHistory.find((h) => h.status === "cancelled")!.timestamp
               )}
@@ -76,18 +89,18 @@ export default function StatusTimeline({
                   className={cn(
                     "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 border-2 transition-all duration-300",
                     isCompleted
-                      ? "bg-[#C9A96E] border-[#C9A96E]"
+                      ? "bg-[#C9A27E] border-[#C9A27E]"
                       : isCurrent
-                      ? "bg-[#C9A96E]/20 border-[#C9A96E]"
-                      : "bg-[#F5F0EB]/5 border-[#F5F0EB]/10"
+                      ? "bg-[#C9A27E]/20 border-[#C9A27E]"
+                      : "bg-[#F8F5F2]/5 border-[#F8F5F2]/10"
                   )}
                 >
                   {isCompleted ? (
                     <Check className="w-3 h-3 text-[#1A1A1A]" />
                   ) : isCurrent ? (
-                    <div className="w-2 h-2 rounded-full bg-[#C9A96E]" />
+                    <div className="w-2 h-2 rounded-full bg-[#C9A27E]" />
                   ) : (
-                    <div className="w-2 h-2 rounded-full bg-[#F5F0EB]/10" />
+                    <div className="w-2 h-2 rounded-full bg-[#F8F5F2]/10" />
                   )}
                 </div>
                 {index < statusOrder.length - 1 && (
@@ -95,8 +108,8 @@ export default function StatusTimeline({
                     className={cn(
                       "w-0.5 flex-1 min-h-[2rem]",
                       isCompleted
-                        ? "bg-[#C9A96E]/60"
-                        : "bg-[#F5F0EB]/10"
+                        ? "bg-[#C9A27E]/60"
+                        : "bg-[#F8F5F2]/10"
                     )}
                   />
                 )}
@@ -107,8 +120,8 @@ export default function StatusTimeline({
                   className={cn(
                     "text-sm font-medium",
                     isCompleted || isCurrent
-                      ? "text-[#F5F0EB]"
-                      : "text-[#F5F0EB]/30"
+                      ? "text-[#F8F5F2]"
+                      : "text-[#F8F5F2]/30"
                   )}
                 >
                   {getOrderStatusLabel(status)}
@@ -118,17 +131,17 @@ export default function StatusTimeline({
                     className={cn(
                       "text-xs mt-0.5",
                       isCompleted || isCurrent
-                        ? "text-[#F5F0EB]/40"
-                        : "text-[#F5F0EB]/20"
+                        ? "text-[#F8F5F2]/40"
+                        : "text-[#F8F5F2]/20"
                     )}
                   >
                     {formatDate(entry.timestamp)}
                   </p>
                 ) : (
-                  <p className="text-xs text-[#F5F0EB]/15 mt-0.5">—</p>
+                  <p className="text-xs text-[#F8F5F2]/15 mt-0.5">—</p>
                 )}
                 {entry?.note && (isCompleted || isCurrent) && (
-                  <p className="text-xs text-[#F5F0EB]/30 mt-1 leading-relaxed">
+                  <p className="text-xs text-[#F8F5F2]/30 mt-1 leading-relaxed">
                     {entry.note}
                   </p>
                 )}

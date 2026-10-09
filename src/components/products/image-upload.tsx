@@ -87,7 +87,7 @@ function ImageUpload({
           {images.map((img, idx) => (
             <div
               key={idx}
-              className="group relative overflow-hidden rounded-xl border border-gray-100 bg-[#F5F0EB]"
+              className="group relative overflow-hidden rounded-sm border border-[#1A1A1A]/10 bg-[#F8F5F2]"
             >
               <div className="aspect-square flex items-center justify-center overflow-hidden">
                 <img
@@ -148,19 +148,19 @@ function ImageUpload({
           onDragLeave={() => setDragActive(false)}
           onDrop={handleDrop}
           onClick={() => document.getElementById("image-upload-zone")?.click()}
-          className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-all ${
+          className={`flex cursor-pointer flex-col items-center justify-center rounded-sm border-2 border-dashed p-8 transition-all ${
             dragActive
-              ? "border-[#C9A96E] bg-[#C9A96E]/5"
-              : "border-gray-200 hover:border-[#C9A96E]/50 hover:bg-[#C9A96E]/5"
+              ? "border-[#C9A27E] bg-[#C9A27E]/5"
+              : "border-[#1A1A1A]/10 hover:border-[#C9A27E]/50 hover:bg-[#C9A27E]/5"
           }`}
         >
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#C9A96E]/10">
-            <Upload className="h-5 w-5 text-[#7A6543]" />
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#C9A27E]/10">
+            <Upload className="h-5 w-5 text-[#B8906A]" />
           </div>
           <p className="text-sm font-medium text-[#1A1A1A]">
             Drop images here or click to upload
           </p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-[#1A1A1A]/40">
             {maxImages - images.length} of {maxImages} slots remaining
           </p>
           <input

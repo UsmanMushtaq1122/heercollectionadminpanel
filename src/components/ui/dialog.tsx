@@ -31,7 +31,7 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
       {open && (
         <>
           <motion.div
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 z-50 bg-[#1A1A1A]/60 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -50,7 +50,7 @@ function DialogContent({ className, children }: DialogContentProps) {
   return (
     <motion.div
       className={cn(
-        "relative z-50 w-full max-w-lg rounded-xl border border-gray-100 bg-white p-6 shadow-2xl",
+        "relative z-50 w-full max-w-lg rounded-sm border border-[#1A1A1A]/10 bg-white p-6 shadow-lg",
         className
       )}
       initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -67,7 +67,7 @@ function DialogTitle({ className, children, ...props }: DialogTitleProps) {
   return (
     <h2
       className={cn(
-        "text-lg font-semibold text-[#1A1A1A]",
+        "text-lg font-semibold leading-none tracking-tight text-[#1A1A1A]",
         className
       )}
       {...props}
@@ -84,7 +84,7 @@ function DialogDescription({
 }: DialogDescriptionProps) {
   return (
     <p
-      className={cn("mt-1 text-sm text-gray-500", className)}
+      className={cn("mt-1 text-sm text-[#1A1A1A]/60", className)}
       {...props}
     >
       {children}
@@ -110,7 +110,7 @@ function DialogFooter({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-4", className)} {...props}>
+    <div className={cn("mt-4 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} {...props}>
       {children}
     </div>
   );
@@ -136,7 +136,7 @@ function DialogClose({
   return (
     <button
       className={cn(
-        "absolute right-4 top-4 rounded-md p-1 text-gray-400 transition-colors hover:text-[#1A1A1A]",
+        "absolute right-4 top-4 rounded-sm p-1 text-[#1A1A1A]/50 transition-colors hover:bg-[#E8DDD4] hover:text-[#1A1A1A]",
         className
       )}
       onClick={onClick}

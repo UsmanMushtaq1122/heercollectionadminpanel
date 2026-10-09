@@ -14,16 +14,16 @@ export default function HomePage() {
   return (
     <div
       className="min-h-screen flex items-center justify-center"
-      style={{ backgroundColor: "#F5F0EB" }}
+      style={{ backgroundColor: "#F8F5F2" }}
     >
       <div className="flex flex-col items-center gap-4">
         <Loader2
           className="w-6 h-6 animate-spin"
-          style={{ color: "#C9A96E" }}
+          style={{ color: "#C9A27E" }}
         />
         <p
-          className="text-sm font-medium tracking-wider uppercase"
-          style={{ fontFamily: "'Inter', sans-serif", color: "#1A1A1A60" }}
+          className="text-sm font-medium tracking-[0.3em] uppercase"
+          style={{ fontFamily: "'Geist', sans-serif", color: "rgba(26,26,26,0.6)" }}
         >
           Redirecting...
         </p>

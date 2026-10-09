@@ -6,7 +6,7 @@ const initialState: AuthState = {
   accessToken: null,
   refreshToken: null,
   isAuthenticated: false,
-  isLoading: true,
+  isLoading: true, // start as true so layout waits for localStorage hydration
 };
 
 export const authSlice = createSlice({

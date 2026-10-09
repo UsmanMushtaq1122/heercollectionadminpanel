@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -25,7 +26,11 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { StoreLocation as StoreLocationDTO } from "@/types";
+import { adminLocationService } from "@/lib/admin-services";
+import { getErrorMessage } from "@/lib/api";
 
 interface StoreLocation {
   id: string;
@@ -41,63 +46,51 @@ interface StoreLocation {
   active: boolean;
 }
 
-const mockLocations: StoreLocation[] = [
-  {
-    id: "loc1",
-    name: "AA Neddles — Flagship Store",
-    address: "24-C, MM Alam Road, Gulberg III",
-    city: "Lahore",
-    province: "Punjab",
-    phone: "+92 42 3578 1234",
-    email: "lahore@aanneddles.com",
-    hours: "Mon-Sat: 11:00 AM - 9:00 PM | Sun: 12:00 PM - 8:00 PM",
-    lat: 31.5204,
-    lng: 74.3587,
-    active: true,
-  },
-  {
-    id: "loc2",
-    name: "AA Neddles — Clifton",
-    address: "Block 5, Seaview Boulevard",
-    city: "Karachi",
-    province: "Sindh",
-    phone: "+92 21 3587 5678",
-    email: "karachi@aanneddles.com",
-    hours: "Mon-Sat: 11:00 AM - 9:00 PM | Sun: 12:00 PM - 8:00 PM",
-    lat: 24.8607,
-    lng: 67.0011,
-    active: true,
-  },
-  {
-    id: "loc3",
-    name: "AA Neddles — F-8",
-    address: "15, Jinnah Avenue, F-8/2",
-    city: "Islamabad",
-    province: "Islamabad Capital Territory",
-    phone: "+92 51 2654 9012",
-    email: "islamabad@aanneddles.com",
-    hours: "Mon-Sat: 10:00 AM - 8:00 PM | Sun: Closed",
-    lat: 33.6844,
-    lng: 73.0479,
-    active: true,
-  },
-  {
-    id: "loc4",
-    name: "AA Neddles — DHA",
-    address: "33, Commercial Area, DHA Phase 6",
-    city: "Lahore",
-    province: "Punjab",
-    phone: "+92 42 3713 4567",
-    email: "dha@aanneddles.com",
-    hours: "Mon-Sat: 11:00 AM - 9:00 PM | Sun: 12:00 PM - 8:00 PM",
-    lat: 31.4739,
-    lng: 74.3740,
-    active: false,
-  },
-];
+function mapLocation(l: StoreLocationDTO): StoreLocation {
+  return {
+    id: l.id,
+    name: l.name,
+    address: l.address,
+    city: l.city,
+    province: l.province,
+    phone: l.phone,
+    email: l.email || "",
+    hours: l.hours,
+    lat: l.latitude || 0,
+    lng: l.longitude || 0,
+    active: l.isActive,
+  };
+}
 
 export default function LocationsPage() {
-  const [locations, setLocations] = useState(mockLocations);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: rawLocations = [] } = useQuery({
+    queryKey: ["locations"],
+    queryFn: () => adminLocationService.list(),
+  });
+  const locations = rawLocations.map(mapLocation);
+  const createMutation = useMutation({
+    mutationFn: (data: Partial<StoreLocationDTO>) => adminLocationService.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["locations"] });
+      toast("success", "Location created successfully");
+    },
+    onError: (error: unknown) => toast("error", getErrorMessage(error)),
+  });
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<StoreLocationDTO> }) => adminLocationService.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["locations"] }),
+    onError: (error: unknown) => toast("error", getErrorMessage(error)),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => adminLocationService.remove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["locations"] });
+      toast("success", "Location deleted successfully");
+    },
+    onError: (error: unknown) => toast("error", getErrorMessage(error)),
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<StoreLocation | null>(null);
   const [form, setForm] = useState({
@@ -148,32 +141,43 @@ export default function LocationsPage() {
   };
 
   const handleSave = () => {
+    const payload: Partial<StoreLocationDTO> = {
+      name: form.name,
+      address: form.address,
+      city: form.city,
+      province: form.province,
+      phone: form.phone,
+      email: form.email || undefined,
+      hours: form.hours,
+      latitude: form.lat,
+      longitude: form.lng,
+      isActive: form.active,
+    };
     if (editingLocation) {
-      setLocations((prev) =>
-        prev.map((l) => (l.id === editingLocation.id ? { ...l, ...form } : l))
+      updateMutation.mutate(
+        { id: editingLocation.id, data: payload },
+        { onSuccess: () => toast("success", "Location updated successfully") }
       );
     } else {
-      setLocations((prev) => [
-        ...prev,
-        { id: `loc${Date.now()}`, ...form },
-      ]);
+      createMutation.mutate(payload);
     }
     setDialogOpen(false);
   };
 
   const toggleActive = (id: string) => {
-    setLocations((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, active: !l.active } : l))
-    );
+    const item = locations.find((l) => l.id === id);
+    if (item) {
+      updateMutation.mutate({ id, data: { isActive: !item.active } });
+    }
   };
 
   const deleteItem = (id: string) => {
-    setLocations((prev) => prev.filter((l) => l.id !== id));
+    deleteMutation.mutate(id);
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F0EB]">
-      <div className="p-8 max-w-[1400px] mx-auto">
+    <div className="min-h-screen bg-[#F8F5F2]">
+      <div className="mx-auto w-full max-w-[1400px] min-w-0 p-4 sm:p-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -205,7 +209,7 @@ export default function LocationsPage() {
                             <div className="flex items-center gap-2 mb-1">
                               <h3 className="font-medium text-[#1A1A1A]">{loc.name}</h3>
                               {!loc.active && (
-                                <Badge className="text-[9px] uppercase tracking-wider bg-stone-100 text-stone-400 border-0">
+                                <Badge className="text-[9px] uppercase tracking-wider bg-[#E8DDD4]/40 text-[#1A1A1A]/40 border-0">
                                   Inactive
                                 </Badge>
                               )}
@@ -221,25 +225,25 @@ export default function LocationsPage() {
                               <Pencil className="w-4 h-4 text-[#1A1A1A]/40" />
                             </Button>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => deleteItem(loc.id)}>
-                              <Trash2 className="w-4 h-4 text-[#8B1A1A]/40 hover:text-[#8B1A1A]" />
+                              <Trash2 className="w-4 h-4 text-[#DC2626]/40 hover:text-[#DC2626]" />
                             </Button>
                           </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
                           <div className="flex items-start gap-2.5">
-                            <MapPin className="w-4 h-4 text-[#7A6543] mt-0.5 shrink-0" />
+                            <MapPin className="w-4 h-4 text-[#B8906A] mt-0.5 shrink-0" />
                             <p className="text-sm text-[#1A1A1A]/60 font-light">{loc.address}</p>
                           </div>
                           <div className="flex items-start gap-2.5">
-                            <Phone className="w-4 h-4 text-[#7A6543] mt-0.5 shrink-0" />
+                            <Phone className="w-4 h-4 text-[#B8906A] mt-0.5 shrink-0" />
                             <p className="text-sm text-[#1A1A1A]/60 font-light">{loc.phone}</p>
                           </div>
                           <div className="flex items-start gap-2.5">
-                            <Mail className="w-4 h-4 text-[#7A6543] mt-0.5 shrink-0" />
+                            <Mail className="w-4 h-4 text-[#B8906A] mt-0.5 shrink-0" />
                             <p className="text-sm text-[#1A1A1A]/60 font-light">{loc.email}</p>
                           </div>
                           <div className="flex items-start gap-2.5">
-                            <Clock className="w-4 h-4 text-[#7A6543] mt-0.5 shrink-0" />
+                            <Clock className="w-4 h-4 text-[#B8906A] mt-0.5 shrink-0" />
                             <p className="text-sm text-[#1A1A1A]/60 font-light">{loc.hours}</p>
                           </div>
                         </div>
@@ -258,11 +262,11 @@ export default function LocationsPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
-                  <div className="bg-[#F5F0EB] rounded-lg h-[300px] flex flex-col items-center justify-center relative overflow-hidden">
+                  <div className="bg-[#F8F5F2] rounded-sm h-[300px] flex flex-col items-center justify-center relative overflow-hidden">
                     <div className="absolute inset-0 opacity-20">
-                      <div className="absolute top-[30%] left-[20%] w-2 h-2 rounded-full bg-[#C9A96E]" />
-                      <div className="absolute top-[45%] left-[65%] w-2 h-2 rounded-full bg-[#C9A96E]" />
-                      <div className="absolute top-[25%] left-[50%] w-2 h-2 rounded-full bg-[#C9A96E]" />
+                      <div className="absolute top-[30%] left-[20%] w-2 h-2 rounded-full bg-[#C9A27E]" />
+                      <div className="absolute top-[45%] left-[65%] w-2 h-2 rounded-full bg-[#C9A27E]" />
+                      <div className="absolute top-[25%] left-[50%] w-2 h-2 rounded-full bg-[#C9A27E]" />
                     </div>
                     <Navigation className="w-8 h-8 text-[#1A1A1A]/15 mb-3" />
                     <p className="text-xs text-[#1A1A1A]/30 font-light text-center">
@@ -277,7 +281,7 @@ export default function LocationsPage() {
                       .filter((l) => l.active)
                       .map((loc) => (
                         <div key={loc.id} className="flex items-center gap-2 text-xs text-[#1A1A1A]/50 font-light">
-                          <div className="w-1.5 h-1.5 rounded-full bg-[#C9A96E]" />
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#C9A27E]" />
                           <span>{loc.city}</span>
                           <span className="text-[#1A1A1A]/20">·</span>
                           <span className="text-[#1A1A1A]/30">
@@ -306,8 +310,8 @@ export default function LocationsPage() {
               <Input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="AA Neddles — Location Name"
-                className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                placeholder="Heer Collection — Location Name"
+                className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
               />
             </div>
             <div>
@@ -316,17 +320,17 @@ export default function LocationsPage() {
                 value={form.address}
                 onChange={(e) => setForm({ ...form, address: e.target.value })}
                 placeholder="Street address..."
-                className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">City</label>
                 <Input
                   value={form.city}
                   onChange={(e) => setForm({ ...form, city: e.target.value })}
                   placeholder="City..."
-                  className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                  className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                 />
               </div>
               <div>
@@ -335,18 +339,18 @@ export default function LocationsPage() {
                   value={form.province}
                   onChange={(e) => setForm({ ...form, province: e.target.value })}
                   placeholder="Province..."
-                  className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                  className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">Phone</label>
                 <Input
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="+92 42 3578 1234"
-                  className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                  className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                 />
               </div>
               <div>
@@ -354,8 +358,8 @@ export default function LocationsPage() {
                 <Input
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="location@aanneddles.com"
-                  className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                  placeholder="location@aanheercollection.com"
+                  className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                 />
               </div>
             </div>
@@ -365,10 +369,10 @@ export default function LocationsPage() {
                 value={form.hours}
                 onChange={(e) => setForm({ ...form, hours: e.target.value })}
                 placeholder="Mon-Sat: 11:00 AM - 9:00 PM"
-                className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">Latitude</label>
                 <Input
@@ -376,7 +380,7 @@ export default function LocationsPage() {
                   step="any"
                   value={form.lat}
                   onChange={(e) => setForm({ ...form, lat: parseFloat(e.target.value) || 0 })}
-                  className="border-stone-200 bg-[#F5F0EB]/50 font-light font-mono text-sm focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                  className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light font-mono text-sm focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                 />
               </div>
               <div>
@@ -386,7 +390,7 @@ export default function LocationsPage() {
                   step="any"
                   value={form.lng}
                   onChange={(e) => setForm({ ...form, lng: parseFloat(e.target.value) || 0 })}
-                  className="border-stone-200 bg-[#F5F0EB]/50 font-light font-mono text-sm focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                  className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light font-mono text-sm focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                 />
               </div>
             </div>
@@ -395,7 +399,7 @@ export default function LocationsPage() {
               <Switch checked={form.active} onCheckedChange={(checked) => setForm({ ...form, active: checked })} />
             </div>
             <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-stone-200 text-[#1A1A1A]/60 font-light">
+              <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-[#E8DDD4] text-[#1A1A1A]/60 font-light">
                 Cancel
               </Button>
               <Button onClick={handleSave} className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide">

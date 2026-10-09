@@ -1,11 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  --color-noir: #1A1A1A;
-  --color-cream: #F5F0EB;
-  --color-gold: #C9A96E;
-  --color-gold-dark: #7A6543;
-  --color-maroon: #8B1A1A;
+  --background: #f8f5f2;
+  --foreground: #1a1a1a;
+  --secondary: #e8ddd4;
+  --accent-gold: #c9a27e;
+  --accent-gold-light: #d4b396;
+  --accent-gold-dark: #b8906a;
 }
 
 html {
@@ -13,16 +14,20 @@ html {
 }
 
 body {
-  background-color: var(--color-cream);
-  font-family: "Inter", sans-serif;
-  color: var(--color-noir);
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 ::selection {
-  background-color: var(--color-gold);
-  color: #FFFFFF;
+  background-color: var(--accent-gold);
+  color: #ffffff;
 }
 
 ::-webkit-scrollbar {
@@ -31,28 +36,50 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-noir);
+  background: var(--background);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-gold);
-  border-radius: 9999px;
+  background: var(--secondary);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-gold);
-  opacity: 0.8;
+  background: var(--accent-gold);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-gold) var(--color-noir);
+  scrollbar-color: var(--secondary) var(--background);
 }
 
 *:focus-visible:not(input):not(textarea):not(select) {
-  outline: 2px solid var(--color-gold);
+  outline: 2px solid var(--accent-gold);
   outline-offset: 2px;
-  border-radius: 4px;
+}
+
+.luxury-gradient {
+  background: linear-gradient(135deg, var(--background) 0%, var(--secondary) 100%);
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-light) 100%);
+}
+
+.editorial-shadow {
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+}
+
+.luxury-border {
+  border: 1px solid rgba(201, 162, 126, 0.2);
+}
+
+.eyebrow-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: var(--accent-gold);
 }
 
 @media print {

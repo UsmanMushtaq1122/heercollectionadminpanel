@@ -12,68 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProductForm } from "@/components/products/product-form";
 import { useToast } from "@/components/ui/toast";
 import type { Product } from "@/types";
-
-const MOCK_PRODUCT: Product = {
-  id: "prod-1",
-  name: "Silk Embroidered Kurti",
-  slug: "silk-embroidered-kurti",
-  description:
-    "Exquisite silk kurti featuring intricate hand embroidery. Crafted from premium mulberry silk with detailed thread work on the neckline and sleeves. A timeless piece for the modern woman who appreciates artisanal craftsmanship.",
-  shortDescription: "Premium hand-embroidered silk kurti",
-  price: 4500,
-  compareAtPrice: 5000,
-  costPrice: 2500,
-  sku: "AA-0001",
-  barcode: "629000000001",
-  stock: 45,
-  lowStockThreshold: 5,
-  weight: 0.5,
-  status: "active",
-  isFeatured: true,
-  isNewArrival: false,
-  isBestSeller: true,
-  images: [
-    { id: "img-1", url: "/placeholder.jpg", alt: "Silk Kurti Front", sortOrder: 0 },
-    { id: "img-2", url: "/placeholder.jpg", alt: "Silk Kurti Detail", sortOrder: 1 },
-  ],
-  categories: [
-    { id: "1", name: "Kurtis", slug: "kurtis", sortOrder: 0, isActive: true, createdAt: "2026-01-01T00:00:00.000Z" },
-    { id: "4", name: "Dupattas", slug: "dupattas", sortOrder: 3, isActive: true, createdAt: "2026-01-01T00:00:00.000Z" },
-  ],
-  tags: ["silk", "handmade", "premium", "bestseller"],
-  seoTitle: "Silk Embroidered Kurti | AA Neddles",
-  seoDescription:
-    "Shop our premium hand-embroidered silk kurti. Exquisite craftsmanship meets modern elegance.",
-  createdAt: "2026-01-15T00:00:00.000Z",
-  updatedAt: "2026-07-10T00:00:00.000Z",
-};
-
-function fetchProduct(_id: string): Promise<Product> {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(MOCK_PRODUCT), 600);
-  });
-}
-
-function updateProduct(_id: string, _data: Record<string, unknown>): Promise<{ success: boolean }> {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve({ success: true }), 1000);
-  });
-}
-
-function deleteProduct(_id: string): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, 800);
-  });
-}
-
-function duplicateProduct(_id: string): Promise<{ success: boolean; data: Product }> {
-  return new Promise((resolve) => {
-    setTimeout(
-      () => resolve({ success: true, data: { ...MOCK_PRODUCT, id: "new-dup-id", name: "Silk Embroidered Kurti (Copy)" } }),
-      800
-    );
-  });
-}
+import { adminProductService } from "@/lib/admin-services";
 
 export default function EditProductPage() {
   const router = useRouter();
@@ -85,32 +24,54 @@ export default function EditProductPage() {
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["product", productId],
-    queryFn: () => fetchProduct(productId),
+    queryFn: () => adminProductService.get(productId),
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => updateProduct(productId, data),
+    mutationFn: async (data: Record<string, unknown>) => {
+      const imageFiles = data.imageFiles as File[] | undefined;
+      const uploaded = imageFiles?.length
+        ? await adminProductService.uploadImages(imageFiles)
+        : [];
+      const images = (data.images as Array<{ url: string; alt: string }> | undefined) ?? [];
+      const uploadedImages = uploaded.map((image, index) => ({
+        id: `img-${Date.now()}-${index}`,
+        url: image.url,
+        alt: images[index]?.alt || "Product image",
+        sortOrder: index,
+      }));
+      const { imageFiles: _imageFiles, ...productData } = data;
+      return adminProductService.update(productId, {
+        ...productData,
+        images: uploadedImages.length ? [...images.filter((image) => !image.url.startsWith("blob:")), ...uploadedImages] : images,
+      } as unknown as Partial<Product>);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["product", productId] });
       toast("success", "Product updated successfully");
       router.push("/admin/products");
     },
-    onError: () => {
-      toast("error", "Failed to update product");
+    onError: (error) => {
+      toast("error", error instanceof Error ? error.message : "Failed to update product");
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteProduct(productId),
-    onSuccess: () => {
+    mutationFn: () => adminProductService.remove(productId),
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      toast("success", "Product deleted");
+      // A product with order history is archived rather than deleted.
+      toast(data.archived ? "info" : "success", data.message);
       router.push("/admin/products");
+    },
+    onError: (error) => {
+      toast("error", error instanceof Error ? error.message : "Failed to delete product");
     },
   });
 
   const duplicateMutation = useMutation({
-    mutationFn: () => duplicateProduct(productId),
+    mutationFn: () => adminProductService.duplicate(productId),
     onSuccess: (data: { success: boolean; data: Product }) => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       toast("success", "Product duplicated");
@@ -124,13 +85,13 @@ export default function EditProductPage() {
         <Skeleton className="h-8 w-48" />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">
           <div className="space-y-6">
-            <Skeleton className="h-96 w-full rounded-xl" />
-            <Skeleton className="h-64 w-full rounded-xl" />
+            <Skeleton className="h-96 w-full rounded-sm" />
+            <Skeleton className="h-64 w-full rounded-sm" />
           </div>
           <div className="space-y-6">
-            <Skeleton className="h-32 w-full rounded-xl" />
-            <Skeleton className="h-48 w-full rounded-xl" />
-            <Skeleton className="h-40 w-full rounded-xl" />
+            <Skeleton className="h-32 w-full rounded-sm" />
+            <Skeleton className="h-48 w-full rounded-sm" />
+            <Skeleton className="h-40 w-full rounded-sm" />
           </div>
         </div>
       </div>
@@ -140,7 +101,7 @@ export default function EditProductPage() {
   if (!product) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-sm text-gray-500">Product not found.</p>
+        <p className="text-sm text-[#1A1A1A]/50">Product not found.</p>
         <Button
           variant="outline"
           className="mt-4"
@@ -165,8 +126,10 @@ export default function EditProductPage() {
       </motion.div>
 
       <ProductForm
+        key={product.id}
         initialData={product}
         onSubmit={(data) => updateMutation.mutate(data)}
+        onDiscard={() => router.push("/admin/products")}
         isLoading={updateMutation.isPending}
       />
 
@@ -188,7 +151,7 @@ export default function EditProductPage() {
                 <p className="text-sm font-medium text-[#1A1A1A]">
                   Duplicate this product
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-[#1A1A1A]/50">
                   Create a copy of this product as a new draft.
                 </p>
               </div>
@@ -202,13 +165,13 @@ export default function EditProductPage() {
                 Duplicate Product
               </Button>
             </div>
-            <div className="my-4 h-px bg-gray-100" />
+            <div className="my-4 h-px bg-[#E8DDD4]/50" />
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-medium text-red-600">
                   Delete this product
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-[#1A1A1A]/50">
                   Permanently remove this product. This action cannot be undone.
                 </p>
               </div>

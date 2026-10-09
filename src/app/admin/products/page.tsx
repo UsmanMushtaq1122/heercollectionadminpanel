@@ -29,90 +29,50 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { DataTable } from "@/components/ui/data-table";
-import { Product, Category } from "@/types";
+import { Product } from "@/types";
 import { formatCurrency } from "@/lib/utils";
-
-const MOCK_CATEGORIES: Category[] = [
-  { id: "1", name: "Kurtis", slug: "kurtis", sortOrder: 0, isActive: true, createdAt: "2026-01-01T00:00:00.000Z" },
-  { id: "2", name: "Suits", slug: "suits", sortOrder: 1, isActive: true, createdAt: "2026-01-01T00:00:00.000Z" },
-  { id: "3", name: "Sarees", slug: "sarees", sortOrder: 2, isActive: true, createdAt: "2026-01-01T00:00:00.000Z" },
-  { id: "4", name: "Dupattas", slug: "dupattas", sortOrder: 3, isActive: true, createdAt: "2026-01-01T00:00:00.000Z" },
-  { id: "5", name: "Accessories", slug: "accessories", sortOrder: 4, isActive: true, createdAt: "2026-01-01T00:00:00.000Z" },
-];
-
-const MOCK_PRODUCTS: Product[] = Array.from({ length: 24 }, (_, i) => ({
-  id: `prod-${i + 1}`,
-  name: [
-    "Silk Embroidered Kurti",
-    "Chiffon Premium Suit",
-    "Banarasi Silk Saree",
-    "Organza Dupatta",
-    "Pearl Set",
-    "Velvet Jacket",
-    "Linen Kurta",
-    "Net Lehenga",
-  ][i % 8],
-  slug: `product-${i + 1}`,
-  description: "Premium quality luxury wear from AA Neddles.",
-  shortDescription: "Luxury wear",
-  price: [4500, 8900, 12500, 3200, 6700, 9500, 5800, 15000][i % 8],
-  compareAtPrice: [5000, 9900, 14000, 3800, 7500, 10000, 6500, 17000][i % 8],
-  costPrice: [2500, 5000, 7000, 1800, 3500, 5500, 3200, 8500][i % 8],
-  sku: `AA-${String(i + 1).padStart(4, "0")}`,
-  barcode: `629${String(i + 1).padStart(9, "0")}`,
-  stock: [45, 12, 0, 3, 28, 67, 8, 2][i % 8],
-  lowStockThreshold: 5,
-  weight: 0.5,
-  status: (["active", "active", "draft", "active", "archived", "active", "draft", "active"] as const)[i % 8],
-  isFeatured: i % 3 === 0,
-  isNewArrival: i % 5 === 0,
-  isBestSeller: i % 4 === 0,
-  images: [
-    { id: `img-${i}-1`, url: "/placeholder.jpg", alt: `Product ${i + 1}`, sortOrder: 0 },
-  ],
-  categories: [MOCK_CATEGORIES[i % 5]],
-  tags: ["new", "premium"],
-  createdAt: new Date(2026, 0, 15 + i).toISOString(),
-  updatedAt: new Date(2026, 6, 10 + i).toISOString(),
-}));
-
-function fetchProducts(): Promise<{ data: Product[]; total: number }> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ data: MOCK_PRODUCTS, total: MOCK_PRODUCTS.length });
-    }, 800);
-  });
-}
-
-function deleteProduct(_id: string): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, 500);
-  });
-}
+import { adminProductService } from "@/lib/admin-services";
+import { getErrorMessage } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 
 export default function ProductsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [selectedRows, setSelectedRows] = useState<Product[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
 
   const { data: productsData, isLoading } = useQuery({
     queryKey: ["products"],
-    queryFn: fetchProducts,
+    queryFn: () => adminProductService.list(),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deleteProduct,
-    onSuccess: () => {
+    mutationFn: (id: string) => adminProductService.remove(id),
+    onError: (error: unknown) => toast("error", getErrorMessage(error)),
+    onSuccess: (data) => {
+      // A product with order history is archived rather than deleted.
+      toast(data.archived ? "info" : "success", data.message);
       queryClient.invalidateQueries({ queryKey: ["products"] });
       setDeleteDialogOpen(false);
       setProductToDelete(null);
     },
   });
+
+  const categories = useMemo(() => {
+    const map = new Map<string, Product["categories"][number]>();
+    productsData?.data.forEach((p) => {
+      p.categories.forEach((c) => {
+        if (c.slug !== "uncategorized" && !map.has(c.id)) map.set(c.id, c);
+      });
+    });
+    return Array.from(map.values());
+  }, [productsData]);
 
   const filteredProducts = useMemo(() => {
     if (!productsData?.data) return [];
@@ -153,15 +113,23 @@ export default function ProductsPage() {
       header: "",
       cell: ({ row }) => {
         const product = row.original;
+        const firstImg = product.images?.[0];
+        const imgUrl =
+          typeof firstImg === "string"
+            ? firstImg
+            : firstImg?.url || product.thumbnail || null;
+
         return (
-          <div className="h-12 w-12 overflow-hidden rounded-lg border border-gray-100 bg-[#F5F0EB]">
-            {product.images[0] ? (
-              <div className="flex h-full w-full items-center justify-center bg-[#F5F0EB]">
-                <ImageIcon className="h-5 w-5 text-gray-300" />
-              </div>
+          <div className="h-12 w-12 overflow-hidden rounded-sm border border-[#1A1A1A]/10 bg-[#E8DDD4]">
+            {imgUrl ? (
+              <img
+                src={imgUrl}
+                alt={product.name}
+                className="h-full w-full object-cover"
+              />
             ) : (
               <div className="flex h-full w-full items-center justify-center">
-                <ImageIcon className="h-5 w-5 text-gray-300" />
+                <ImageIcon className="h-5 w-5 text-[#1A1A1A]/30" />
               </div>
             )}
           </div>
@@ -182,7 +150,7 @@ export default function ProductsPage() {
       accessorKey: "sku",
       header: "SKU",
       cell: ({ row }) => (
-        <span className="font-mono text-xs text-gray-500">{row.original.sku}</span>
+        <span className="font-mono text-xs text-[#1A1A1A]/50">{row.original.sku}</span>
       ),
     },
     {
@@ -205,13 +173,13 @@ export default function ProductsPage() {
               isOut
                 ? "text-red-600"
                 : isLow
-                ? "text-red-500"
+                ? "text-[#B8906A]"
                 : "text-[#1A1A1A]"
             }`}
           >
             {stock}
             {isLow && !isOut && (
-              <span className="ml-1.5 text-xs text-red-400">Low</span>
+              <span className="ml-1.5 text-xs text-[#B8906A]">Low</span>
             )}
             {isOut && (
               <span className="ml-1.5 text-xs text-red-400">Out</span>
@@ -244,7 +212,7 @@ export default function ProductsPage() {
         const product = row.original;
         return (
           <DropdownMenu>
-            <DropdownMenuTrigger className="text-gray-400 hover:text-[#1A1A1A]">
+            <DropdownMenuTrigger className="text-[#1A1A1A]/40 hover:text-[#1A1A1A]">
               <MoreHorizontal className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -285,7 +253,7 @@ export default function ProductsPage() {
         transition={{ duration: 0.3 }}
         className="flex items-center justify-between"
       >
-        <h1 className="text-2xl font-semibold tracking-tight text-[#1A1A1A]">
+        <h1 className="font-serif text-3xl font-semibold tracking-wide text-[#1A1A1A]">
           Products
         </h1>
         <Button onClick={() => router.push("/admin/products/new")}>
@@ -308,13 +276,13 @@ export default function ProductsPage() {
                   placeholder="Search products..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="flex h-10 w-full max-w-sm rounded-lg border border-gray-200 bg-[#F5F0EB]/50 px-3 py-2 text-sm text-[#1A1A1A] transition-colors placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E]"
+                  className="flex h-10 w-full max-w-sm rounded-sm border border-[#1A1A1A]/20 bg-white px-3 py-2 text-sm text-[#1A1A1A] transition-all duration-300 placeholder:text-[#1A1A1A]/40 focus:border-[#C9A27E] focus:outline-none focus:ring-2 focus:ring-[#C9A27E]/50"
                 />
               </div>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="flex h-10 appearance-none rounded-lg border border-gray-200 bg-[#F5F0EB]/50 px-3 py-2 pr-8 text-sm text-[#1A1A1A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E]"
+                className="flex h-10 appearance-none rounded-sm border border-[#1A1A1A]/20 bg-white px-3 py-2 pr-8 text-sm text-[#1A1A1A] transition-all duration-300 focus:border-[#C9A27E] focus:outline-none focus:ring-2 focus:ring-[#C9A27E]/50"
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
@@ -324,10 +292,10 @@ export default function ProductsPage() {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="flex h-10 appearance-none rounded-lg border border-gray-200 bg-[#F5F0EB]/50 px-3 py-2 pr-8 text-sm text-[#1A1A1A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E]"
+                className="flex h-10 appearance-none rounded-sm border border-[#1A1A1A]/20 bg-white px-3 py-2 pr-8 text-sm text-[#1A1A1A] transition-all duration-300 focus:border-[#C9A27E] focus:outline-none focus:ring-2 focus:ring-[#C9A27E]/50"
               >
                 <option value="all">All Categories</option>
-                {MOCK_CATEGORIES.map((cat) => (
+                {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.name}
                   </option>
@@ -343,7 +311,7 @@ export default function ProductsPage() {
                   exit={{ opacity: 0, height: 0 }}
                   className="mb-4 overflow-hidden"
                 >
-                  <div className="flex items-center gap-3 rounded-lg border border-[#C9A96E]/20 bg-[#C9A96E]/5 px-4 py-3">
+                  <div className="flex items-center gap-3 rounded-sm border border-[#C9A27E]/20 bg-[#C9A27E]/5 px-4 py-3">
                     <span className="text-sm font-medium text-[#1A1A1A]">
                       {selectedRows.length} selected
                     </span>
@@ -359,12 +327,7 @@ export default function ProductsPage() {
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => {
-                          selectedRows.forEach((p) =>
-                            deleteMutation.mutate(p.id)
-                          );
-                          setSelectedRows([]);
-                        }}
+                        onClick={() => setBulkDeleteDialogOpen(true)}
                       >
                         <Trash className="h-3.5 w-3.5" />
                         Delete Selected
@@ -379,13 +342,13 @@ export default function ProductsPage() {
               <div className="space-y-3">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-4 px-4 py-3">
-                    <Skeleton className="h-12 w-12 rounded-lg" />
+                    <Skeleton className="h-12 w-12 rounded-sm" />
                     <Skeleton className="h-4 w-48" />
                     <Skeleton className="h-4 w-20" />
                     <Skeleton className="h-4 w-24" />
                     <Skeleton className="h-4 w-12" />
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                    <Skeleton className="h-8 w-8 rounded-lg ml-auto" />
+                    <Skeleton className="h-5 w-16 rounded-sm" />
+                    <Skeleton className="h-8 w-8 rounded-sm ml-auto" />
                   </div>
                 ))}
               </div>
@@ -441,6 +404,31 @@ export default function ProductsPage() {
               }}
             >
               Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <DialogContent>
+          <DialogTitle>Delete Selected Products</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete {selectedRows.length} selected products? This action cannot be undone.
+          </DialogDescription>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setBulkDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              loading={deleteMutation.isPending}
+              onClick={() => {
+                selectedRows.forEach((product) => deleteMutation.mutate(product.id));
+                setSelectedRows([]);
+                setBulkDeleteDialogOpen(false);
+              }}
+            >
+              Delete Selected
             </Button>
           </div>
         </DialogContent>

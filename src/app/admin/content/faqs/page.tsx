@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -35,7 +36,11 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { FAQ as FAQDTO } from "@/types";
+import { adminFaqService } from "@/lib/admin-services";
+import { getErrorMessage } from "@/lib/api";
 
 interface FAQ {
   id: string;
@@ -46,106 +51,46 @@ interface FAQ {
   order: number;
 }
 
-const mockFAQs: FAQ[] = [
-  {
-    id: "f1",
-    question: "What are your shipping charges?",
-    answer: "We offer free shipping on all orders above PKR 25,000 within Pakistan. For orders below this threshold, a flat rate of PKR 500 applies. International shipping rates vary by destination and are calculated at checkout. Express delivery is available for an additional PKR 1,000.",
-    category: "Shipping",
-    active: true,
-    order: 0,
-  },
-  {
-    id: "f2",
-    question: "How long does delivery take?",
-    answer: "Standard delivery within Pakistan takes 3-5 business days. Express delivery is available in major cities (Lahore, Karachi, Islamabad) and takes 1-2 business days. International orders typically arrive within 7-14 business days depending on the destination country.",
-    category: "Shipping",
-    active: true,
-    order: 1,
-  },
-  {
-    id: "f3",
-    question: "Do you ship internationally?",
-    answer: "Yes, we ship to over 40 countries worldwide. International orders are shipped via DHL Express and include tracking. Please note that customs duties and import taxes are the responsibility of the customer and vary by country.",
-    category: "Shipping",
-    active: true,
-    order: 2,
-  },
-  {
-    id: "f4",
-    question: "What is your return policy?",
-    answer: "We accept returns within 14 days of delivery for unworn items in their original packaging with tags attached. Sale items are final sale and cannot be returned. To initiate a return, please contact our customer service team with your order number.",
-    category: "Returns",
-    active: true,
-    order: 3,
-  },
-  {
-    id: "f5",
-    question: "How do I exchange an item?",
-    answer: "Exchanges are available for a different size or color of the same item, subject to stock availability. Please contact us within 14 days of delivery. The item must be unworn, unwashed, and in its original packaging. We will arrange a pickup and send the replacement once we receive the original item.",
-    category: "Returns",
-    active: true,
-    order: 4,
-  },
-  {
-    id: "f6",
-    question: "When will I receive my refund?",
-    answer: "Refunds are processed within 5-7 business days after we receive and inspect the returned item. The refund will be credited to your original payment method. For cash on delivery orders, refunds are made via bank transfer — please provide your account details to our customer service team.",
-    category: "Returns",
-    active: true,
-    order: 5,
-  },
-  {
-    id: "f7",
-    question: "How do I find my size?",
-    answer: "Each product page includes a detailed size guide with measurements in both inches and centimeters. We recommend measuring yourself and comparing with our chart. If you're between sizes, we suggest sizing up for a more comfortable fit. Our customer service team is also available to help with sizing questions via WhatsApp at +92 321 1234567.",
-    category: "Sizing",
-    active: true,
-    order: 6,
-  },
-  {
-    id: "f8",
-    question: "Are your clothes true to size?",
-    answer: "Our clothing is designed to fit true to size according to our size chart. However, fit may vary slightly depending on the style and fabric. Each product page includes specific fit information (e.g., 'relaxed fit', 'tailored fit') to help you choose. When in doubt, our customer service team can provide personalized recommendations.",
-    category: "Sizing",
-    active: true,
-    order: 7,
-  },
-  {
-    id: "f9",
-    question: "Can I modify or cancel my order?",
-    answer: "Orders can be modified or cancelled within 2 hours of placement. After this window, our team begins processing and packing. Please contact us immediately via WhatsApp or email at support@aanneddles.com with your order number if you need to make changes.",
-    category: "Orders",
-    active: true,
-    order: 8,
-  },
-  {
-    id: "f10",
-    question: "What payment methods do you accept?",
-    answer: "We accept all major credit and debit cards (Visa, Mastercard), bank transfers, JazzCash, EasyPaisa, and cash on delivery (COD). For orders above PKR 100,000, we also offer installment plans through our banking partners. All online transactions are secured with 256-bit SSL encryption.",
-    category: "Orders",
-    active: true,
-    order: 9,
-  },
-  {
-    id: "f11",
-    question: "How do I track my order?",
-    answer: "Once your order is dispatched, you'll receive an SMS and email with a tracking number and link. You can also track your order by logging into your account and visiting the 'My Orders' section. For any delivery concerns, our team is available Monday to Saturday, 10 AM to 7 PM.",
-    category: "Orders",
-    active: false,
-    order: 10,
-  },
-];
+function mapFAQ(f: FAQDTO): FAQ {
+  return { id: f.id, question: f.question, answer: f.answer, category: f.category, active: f.isActive, order: f.sortOrder };
+}
 
 const categoryConfig: Record<string, string> = {
   Shipping: "bg-blue-50 text-blue-600 border-blue-200",
   Returns: "bg-amber-50 text-amber-700 border-amber-200",
   Sizing: "bg-emerald-50 text-emerald-600 border-emerald-200",
-  Orders: "bg-[#C9A96E]/10 text-[#7A6543] border-[#C9A96E]/20",
+  Orders: "bg-[#C9A27E]/10 text-[#B8906A] border-[#C9A27E]/20",
 };
 
 export default function FAQsPage() {
-  const [faqs, setFaqs] = useState(mockFAQs);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: rawFaqs = [] } = useQuery({
+    queryKey: ["faqs"],
+    queryFn: () => adminFaqService.list(),
+  });
+  const faqs = rawFaqs.map(mapFAQ);
+  const createMutation = useMutation({
+    mutationFn: (data: Partial<FAQDTO>) => adminFaqService.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["faqs"] });
+      toast("success", "FAQ created successfully");
+    },
+    onError: (error: unknown) => toast("error", getErrorMessage(error)),
+  });
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<FAQDTO> }) => adminFaqService.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["faqs"] }),
+    onError: (error: unknown) => toast("error", getErrorMessage(error)),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => adminFaqService.remove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["faqs"] });
+      toast("success", "FAQ deleted successfully");
+    },
+    onError: (error: unknown) => toast("error", getErrorMessage(error)),
+  });
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -191,45 +136,48 @@ export default function FAQsPage() {
   };
 
   const handleSave = () => {
+    const payload: Partial<FAQDTO> = {
+      question: form.question,
+      answer: form.answer,
+      category: form.category,
+      isActive: form.active,
+      sortOrder: editingItem ? editingItem.order : faqs.length,
+    };
     if (editingItem) {
-      setFaqs((prev) =>
-        prev.map((f) => (f.id === editingItem.id ? { ...f, ...form } : f))
+      updateMutation.mutate(
+        { id: editingItem.id, data: payload },
+        { onSuccess: () => toast("success", "FAQ updated successfully") }
       );
     } else {
-      setFaqs((prev) => [
-        ...prev,
-        {
-          id: `f${Date.now()}`,
-          ...form,
-          order: prev.length,
-        },
-      ]);
+      createMutation.mutate(payload);
     }
     setDialogOpen(false);
   };
 
   const toggleActive = (id: string) => {
-    setFaqs((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, active: !f.active } : f))
-    );
+    const item = faqs.find((f) => f.id === id);
+    if (item) {
+      updateMutation.mutate({ id, data: { isActive: !item.active } });
+    }
   };
 
   const moveItem = (id: string, direction: "up" | "down") => {
     const idx = faqs.findIndex((f) => f.id === id);
     const newIdx = direction === "up" ? idx - 1 : idx + 1;
     if (newIdx < 0 || newIdx >= faqs.length) return;
-    const newList = [...faqs];
-    [newList[idx], newList[newIdx]] = [newList[newIdx], newList[idx]];
-    setFaqs(newList);
+    const current = faqs[idx];
+    const target = faqs[newIdx];
+    updateMutation.mutate({ id: current.id, data: { sortOrder: target.order } });
+    updateMutation.mutate({ id: target.id, data: { sortOrder: current.order } });
   };
 
   const deleteItem = (id: string) => {
-    setFaqs((prev) => prev.filter((f) => f.id !== id));
+    deleteMutation.mutate(id);
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F0EB]">
-      <div className="p-8 max-w-[1000px] mx-auto">
+    <div className="min-h-screen bg-[#F8F5F2]">
+      <div className="mx-auto w-full max-w-[1000px] min-w-0 p-4 sm:p-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -249,7 +197,7 @@ export default function FAQsPage() {
                 placeholder="Search questions..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                className="pl-10 border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
               />
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -259,7 +207,7 @@ export default function FAQsPage() {
                   "font-light text-xs uppercase tracking-wide",
                   filterCategory === "all"
                     ? "bg-[#1A1A1A] text-white"
-                    : "border-stone-200 text-[#1A1A1A]/60"
+                    : "border-[#E8DDD4] text-[#1A1A1A]/60"
                 )}
                 onClick={() => setFilterCategory("all")}
               >
@@ -273,7 +221,7 @@ export default function FAQsPage() {
                     "font-light text-xs uppercase tracking-wide",
                     filterCategory === cat
                       ? "bg-[#1A1A1A] text-white"
-                      : "border-stone-200 text-[#1A1A1A]/60"
+                      : "border-[#E8DDD4] text-[#1A1A1A]/60"
                   )}
                   onClick={() => setFilterCategory(cat)}
                 >
@@ -292,7 +240,7 @@ export default function FAQsPage() {
                     <h2 className="text-sm font-medium text-[#1A1A1A] uppercase tracking-widest">
                       {category}
                     </h2>
-                    <Badge className={cn("text-[9px] uppercase tracking-wider font-medium border", categoryConfig[category] || "bg-stone-100 text-stone-500 border-stone-200")}>
+                    <Badge className={cn("text-[9px] uppercase tracking-wider font-medium border", categoryConfig[category] || "bg-[#E8DDD4]/40 text-[#1A1A1A]/50 border-[#E8DDD4]")}>
                       {items.length}
                     </Badge>
                   </div>
@@ -307,19 +255,13 @@ export default function FAQsPage() {
                       >
                         <Card className="bg-white border-0 shadow-sm">
                           <CardContent className="p-0">
-                            <button
-                              className="w-full text-left p-4 flex items-center gap-4 hover:bg-[#F5F0EB]/30 transition-colors rounded-lg"
-                              onClick={() => setExpandedId(expandedId === faq.id ? null : faq.id)}
-                            >
+                            <div className="w-full p-4 flex items-center gap-4 hover:bg-[#F8F5F2]/30 transition-colors rounded-sm">
                               <div className="flex items-center gap-2 shrink-0">
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   className="h-6 w-6 p-0 text-[#1A1A1A]/20 hover:text-[#1A1A1A]"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    moveItem(faq.id, "up");
-                                  }}
+                                  onClick={() => moveItem(faq.id, "up")}
                                   disabled={index === 0}
                                 >
                                   <ChevronUp className="w-3 h-3" />
@@ -328,34 +270,37 @@ export default function FAQsPage() {
                                   variant="ghost"
                                   size="sm"
                                   className="h-6 w-6 p-0 text-[#1A1A1A]/20 hover:text-[#1A1A1A]"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    moveItem(faq.id, "down");
-                                  }}
+                                  onClick={() => moveItem(faq.id, "down")}
                                   disabled={index === items.length - 1}
                                 >
                                   <ChevronDown className="w-3 h-3" />
                                 </Button>
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className={cn("font-medium text-sm", faq.active ? "text-[#1A1A1A]" : "text-[#1A1A1A]/40")}>
-                                    {faq.question}
-                                  </p>
-                                  {!faq.active && (
-                                    <Badge className="text-[8px] uppercase tracking-wider bg-stone-100 text-stone-400 border-0 shrink-0">
-                                      Draft
-                                    </Badge>
-                                  )}
+                              <button
+                                type="button"
+                                className="flex-1 min-w-0 flex items-center justify-between text-left gap-4 cursor-pointer"
+                                onClick={() => setExpandedId(expandedId === faq.id ? null : faq.id)}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className={cn("font-medium text-sm", faq.active ? "text-[#1A1A1A]" : "text-[#1A1A1A]/40")}>
+                                      {faq.question}
+                                    </p>
+                                    {!faq.active && (
+                                      <Badge className="text-[8px] uppercase tracking-wider bg-[#E8DDD4]/40 text-[#1A1A1A]/40 border-0 shrink-0">
+                                        Draft
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                              <ChevronRight
-                                className={cn(
-                                  "w-4 h-4 text-[#1A1A1A]/20 transition-transform shrink-0",
-                                  expandedId === faq.id && "rotate-90"
-                                )}
-                              />
-                            </button>
+                                <ChevronRight
+                                  className={cn(
+                                    "w-4 h-4 text-[#1A1A1A]/20 transition-transform shrink-0",
+                                    expandedId === faq.id && "rotate-90"
+                                  )}
+                                />
+                              </button>
+                            </div>
                             <AnimatePresence>
                               {expandedId === faq.id && (
                                 <motion.div
@@ -366,7 +311,7 @@ export default function FAQsPage() {
                                   className="overflow-hidden"
                                 >
                                   <div className="px-4 pb-4 pl-14">
-                                    <Separator className="bg-stone-100 mb-3" />
+                                    <Separator className="bg-[#E8DDD4]/40 mb-3" />
                                     <p className="text-sm text-[#1A1A1A]/50 font-light leading-relaxed mb-4">
                                       {faq.answer}
                                     </p>
@@ -390,7 +335,7 @@ export default function FAQsPage() {
                                       <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-7 px-3 text-xs font-light text-[#8B1A1A]/50 hover:text-[#8B1A1A]"
+                                        className="h-7 px-3 text-xs font-light text-[#DC2626]/50 hover:text-[#DC2626]"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           deleteItem(faq.id);
@@ -430,7 +375,7 @@ export default function FAQsPage() {
                 value={form.question}
                 onChange={(e) => setForm({ ...form, question: e.target.value })}
                 placeholder="Enter the question..."
-                className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
               />
             </div>
             <div>
@@ -439,13 +384,13 @@ export default function FAQsPage() {
                 value={form.answer}
                 onChange={(e) => setForm({ ...form, answer: e.target.value })}
                 placeholder="Enter the answer..."
-                className="border-stone-200 bg-[#F5F0EB]/50 font-light min-h-[120px] focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light min-h-[120px] focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
               />
             </div>
             <div>
               <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">Category</label>
               <Select value={form.category} onValueChange={(val) => setForm({ ...form, category: val })}>
-                <SelectTrigger className="border-stone-200 bg-[#F5F0EB]/50 font-light">
+                <SelectTrigger className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -461,7 +406,7 @@ export default function FAQsPage() {
               <Switch checked={form.active} onCheckedChange={(checked) => setForm({ ...form, active: checked })} />
             </div>
             <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-stone-200 text-[#1A1A1A]/60 font-light">
+              <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-[#E8DDD4] text-[#1A1A1A]/60 font-light">
                 Cancel
               </Button>
               <Button onClick={handleSave} className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide">

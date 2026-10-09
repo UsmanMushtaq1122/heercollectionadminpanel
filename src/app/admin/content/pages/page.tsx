@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Plus,
@@ -26,7 +27,11 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/components/ui/toast";
 import { cn, formatDateTime } from "@/lib/utils";
+import { CMSPage as CMSPageDTO } from "@/types";
+import { adminPageService } from "@/lib/admin-services";
+import { getErrorMessage } from "@/lib/api";
 
 interface CMSPage {
   id: string;
@@ -39,71 +44,32 @@ interface CMSPage {
   metaDescription: string;
 }
 
-const mockPages: CMSPage[] = [
-  {
-    id: "p1",
-    title: "About Us",
-    slug: "about-us",
-    content: "AA Neddles is a luxury fashion house rooted in the rich textile heritage of Pakistan. Founded with a vision to blend traditional craftsmanship with contemporary design, we create pieces that celebrate the modern Pakistani woman. Every stitch tells a story of heritage, quality, and timeless elegance.",
-    published: true,
-    lastUpdated: "2026-07-10T14:30:00",
-    metaTitle: "About AA Neddles — Luxury Fashion Pakistan",
-    metaDescription: "Discover the story behind AA Neddles, a luxury fashion house celebrating Pakistani textile heritage through contemporary design.",
-  },
-  {
-    id: "p2",
-    title: "Privacy Policy",
-    slug: "privacy-policy",
-    content: "At AA Neddles, we value your privacy and are committed to protecting your personal information. This Privacy Policy outlines how we collect, use, and safeguard the data you provide when using our website and services. By accessing our website, you agree to the practices described in this policy.",
-    published: true,
-    lastUpdated: "2026-06-15T10:00:00",
-    metaTitle: "Privacy Policy — AA Neddles",
-    metaDescription: "Learn how AA Neddles collects, uses, and protects your personal information.",
-  },
-  {
-    id: "p3",
-    title: "Terms & Conditions",
-    slug: "terms-conditions",
-    content: "These Terms and Conditions govern your use of the AA Neddles website and services. By placing an order on our website, you agree to be bound by these terms. Please read them carefully before making a purchase.",
-    published: true,
-    lastUpdated: "2026-06-15T10:00:00",
-    metaTitle: "Terms & Conditions — AA Neddles",
-    metaDescription: "Read the terms and conditions governing the use of AA Neddles website and services.",
-  },
-  {
-    id: "p4",
-    title: "Shipping Policy",
-    slug: "shipping-policy",
-    content: "AA Neddles offers complimentary shipping on all domestic orders above PKR 25,000. Standard delivery takes 3-5 business days within Pakistan. We also offer express delivery and international shipping to over 40 countries.",
-    published: true,
-    lastUpdated: "2026-07-05T09:15:00",
-    metaTitle: "Shipping Policy — AA Neddles",
-    metaDescription: "Learn about AA Neddles shipping options, delivery times, and international shipping policies.",
-  },
-  {
-    id: "p5",
-    title: "Return Policy",
-    slug: "return-policy",
-    content: "We want you to be completely satisfied with your purchase. If for any reason you're not, we accept returns within 14 days of delivery. Items must be unworn, unwashed, and in their original packaging with all tags attached.",
-    published: true,
-    lastUpdated: "2026-07-05T09:15:00",
-    metaTitle: "Return Policy — AA Neddles",
-    metaDescription: "Learn about the AA Neddles return and exchange policy.",
-  },
-  {
-    id: "p6",
-    title: "Care Guide",
-    slug: "care-guide",
-    content: "To preserve the beauty and longevity of your AA Neddles garments, we recommend following these care instructions. Hand wash delicate fabrics in cold water with mild detergent. Dry clean structured pieces. Store knitwear folded to prevent stretching.",
-    published: false,
-    lastUpdated: "2026-07-12T16:45:00",
-    metaTitle: "Garment Care Guide — AA Neddles",
-    metaDescription: "Expert tips on caring for your luxury AA Neddles garments.",
-  },
-];
+function mapPage(p: CMSPageDTO): CMSPage {
+  return {
+    id: p.id,
+    title: p.title,
+    slug: p.slug,
+    content: p.content,
+    published: p.isPublished,
+    lastUpdated: p.updatedAt,
+    metaTitle: p.metaTitle || "",
+    metaDescription: p.metaDescription || "",
+  };
+}
 
 export default function PagesPage() {
-  const [pages, setPages] = useState(mockPages);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: rawPages = [] } = useQuery({
+    queryKey: ["cms-pages"],
+    queryFn: () => adminPageService.list(),
+  });
+  const pages = rawPages.map(mapPage);
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<CMSPageDTO> }) => adminPageService.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cms-pages"] }),
+    onError: (error: unknown) => toast("error", getErrorMessage(error)),
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [editingPage, setEditingPage] = useState<CMSPage | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -137,29 +103,29 @@ export default function PagesPage() {
 
   const handleSave = () => {
     if (editingPage) {
-      setPages((prev) =>
-        prev.map((p) =>
-          p.id === editingPage.id
-            ? {
-                ...p,
-                ...form,
-                lastUpdated: new Date().toISOString(),
-              }
-            : p
-        )
+      updateMutation.mutate(
+        {
+          id: editingPage.id,
+          data: {
+            title: form.title,
+            slug: form.slug,
+            content: form.content,
+            metaTitle: form.metaTitle || undefined,
+            metaDescription: form.metaDescription || undefined,
+            isPublished: form.published,
+          },
+        },
+        { onSuccess: () => toast("success", "Page updated successfully") }
       );
     }
     setDialogOpen(false);
   };
 
   const togglePublished = (id: string) => {
-    setPages((prev) =>
-      prev.map((p) =>
-        p.id === id
-          ? { ...p, published: !p.published, lastUpdated: new Date().toISOString() }
-          : p
-      )
-    );
+    const page = pages.find((p) => p.id === id);
+    if (page) {
+      updateMutation.mutate({ id, data: { isPublished: !page.published } });
+    }
   };
 
   const generateSlug = (title: string) => {
@@ -170,8 +136,8 @@ export default function PagesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F0EB]">
-      <div className="p-8 max-w-[1000px] mx-auto">
+    <div className="min-h-screen bg-[#F8F5F2]">
+      <div className="mx-auto w-full max-w-[1000px] min-w-0 p-4 sm:p-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -187,7 +153,7 @@ export default function PagesPage() {
                 placeholder="Search pages..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 border-stone-200 bg-white font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                className="pl-10 border-[#E8DDD4] bg-white font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
               />
             </div>
           </div>
@@ -204,7 +170,7 @@ export default function PagesPage() {
                   <CardContent className="p-5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className="w-10 h-10 rounded-lg bg-[#F5F0EB] flex items-center justify-center shrink-0">
+                        <div className="w-10 h-10 rounded-sm bg-[#F8F5F2] flex items-center justify-center shrink-0">
                           <FileText className="w-5 h-5 text-[#1A1A1A]/30" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -215,7 +181,7 @@ export default function PagesPage() {
                                 "text-[9px] uppercase tracking-wider font-medium border",
                                 page.published
                                   ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                  : "bg-stone-100 text-stone-400 border-stone-200"
+                                  : "bg-[#E8DDD4]/40 text-[#1A1A1A]/40 border-[#E8DDD4]"
                               )}
                             >
                               {page.published ? "Published" : "Draft"}
@@ -268,7 +234,7 @@ export default function PagesPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-5 mt-2">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">Title</label>
                 <Input
@@ -278,7 +244,7 @@ export default function PagesPage() {
                     setForm({ ...form, title, slug: generateSlug(title) });
                   }}
                   placeholder="Page title..."
-                  className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                  className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                 />
               </div>
               <div>
@@ -287,7 +253,7 @@ export default function PagesPage() {
                   value={form.slug}
                   onChange={(e) => setForm({ ...form, slug: e.target.value })}
                   placeholder="page-slug"
-                  className="border-stone-200 bg-[#F5F0EB]/50 font-light font-mono text-sm focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                  className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light font-mono text-sm focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                 />
               </div>
             </div>
@@ -296,8 +262,8 @@ export default function PagesPage() {
               <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">
                 Content
               </label>
-              <div className="border border-stone-200 rounded-lg bg-[#F5F0EB]/50 overflow-hidden">
-                <div className="flex items-center gap-1 px-3 py-2 border-b border-stone-200 bg-white">
+              <div className="border border-[#E8DDD4] rounded-sm bg-[#F8F5F2]/50 overflow-hidden">
+                <div className="flex items-center gap-1 px-3 py-2 border-b border-[#E8DDD4] bg-white">
                   {["B", "I", "U", "H1", "H2", "Link", "List"].map((btn) => (
                     <Button
                       key={btn}
@@ -321,7 +287,7 @@ export default function PagesPage() {
               </p>
             </div>
 
-            <Separator className="bg-stone-100" />
+            <Separator className="bg-[#E8DDD4]/40" />
 
             <div>
               <h4 className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-3">
@@ -334,7 +300,7 @@ export default function PagesPage() {
                     value={form.metaTitle}
                     onChange={(e) => setForm({ ...form, metaTitle: e.target.value })}
                     placeholder="SEO title..."
-                    className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                    className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                   />
                   <p className="text-[10px] text-[#1A1A1A]/25 mt-1 font-light">
                     {form.metaTitle.length}/60 characters
@@ -346,7 +312,7 @@ export default function PagesPage() {
                     value={form.metaDescription}
                     onChange={(e) => setForm({ ...form, metaDescription: e.target.value })}
                     placeholder="SEO description..."
-                    className="border-stone-200 bg-[#F5F0EB]/50 font-light min-h-[80px] focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                    className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light min-h-[80px] focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                   />
                   <p className="text-[10px] text-[#1A1A1A]/25 mt-1 font-light">
                     {form.metaDescription.length}/160 characters
@@ -361,7 +327,7 @@ export default function PagesPage() {
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-stone-200 text-[#1A1A1A]/60 font-light">
+              <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-[#E8DDD4] text-[#1A1A1A]/60 font-light">
                 Cancel
               </Button>
               <Button onClick={handleSave} className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide">

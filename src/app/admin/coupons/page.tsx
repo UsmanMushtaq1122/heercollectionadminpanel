@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -45,90 +46,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import type { Coupon } from "@/types";
-
-const mockCoupons: Coupon[] = [
-  {
-    id: "1",
-    code: "SUMMER25",
-    description: "25% off on summer collection",
-    type: "percentage",
-    value: 25,
-    minOrderAmount: 5000,
-    maxDiscountAmount: 3000,
-    usageLimit: 200,
-    usedCount: 87,
-    expiresAt: "2026-08-31T23:59:59Z",
-    isActive: true,
-    createdAt: "2026-06-01T00:00:00Z",
-  },
-  {
-    id: "2",
-    code: "FESTIVE500",
-    description: "Rs. 500 off on festive wear",
-    type: "fixed",
-    value: 500,
-    minOrderAmount: 3000,
-    usageLimit: 500,
-    usedCount: 312,
-    expiresAt: "2026-07-31T23:59:59Z",
-    isActive: true,
-    createdAt: "2026-05-15T00:00:00Z",
-  },
-  {
-    id: "3",
-    code: "NEWUSER15",
-    description: "15% off for first-time buyers",
-    type: "percentage",
-    value: 15,
-    minOrderAmount: 2000,
-    maxDiscountAmount: 2000,
-    usageLimit: 1000,
-    usedCount: 456,
-    isActive: true,
-    createdAt: "2026-01-01T00:00:00Z",
-  },
-  {
-    id: "4",
-    code: "EID2026",
-    description: "Eid special - 20% off",
-    type: "percentage",
-    value: 20,
-    minOrderAmount: 8000,
-    maxDiscountAmount: 5000,
-    usageLimit: 300,
-    usedCount: 300,
-    expiresAt: "2026-04-15T23:59:59Z",
-    isActive: false,
-    createdAt: "2026-03-20T00:00:00Z",
-  },
-  {
-    id: "5",
-    code: "VIP1000",
-    description: "Rs. 1000 off for VIP members",
-    type: "fixed",
-    value: 1000,
-    minOrderAmount: 10000,
-    usageLimit: 100,
-    usedCount: 34,
-    expiresAt: "2026-12-31T23:59:59Z",
-    isActive: true,
-    createdAt: "2026-02-01T00:00:00Z",
-  },
-  {
-    id: "6",
-    code: "BRIDAL30",
-    description: "30% off bridal collection",
-    type: "percentage",
-    value: 30,
-    minOrderAmount: 15000,
-    maxDiscountAmount: 10000,
-    usageLimit: 50,
-    usedCount: 12,
-    expiresAt: "2026-12-25T23:59:59Z",
-    isActive: true,
-    createdAt: "2026-07-01T00:00:00Z",
-  },
-];
+import { adminCouponService } from "@/lib/admin-services";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/api";
 
 const couponFormSchema = z.object({
   code: z.string().min(1, "Code is required"),
@@ -155,7 +75,42 @@ const defaultFormValues: CouponFormData = {
 };
 
 export default function CouponsPage() {
-  const [coupons, setCoupons] = useState<Coupon[]>(mockCoupons);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: coupons = [] } = useQuery({
+    queryKey: ["coupons"],
+    queryFn: () => adminCouponService.list(),
+  });
+  const createMutation = useMutation({
+    mutationFn: (data: Partial<Coupon>) => adminCouponService.create(data),
+    onSuccess: () => {
+      toast("success", "Coupon created successfully");
+      queryClient.invalidateQueries({ queryKey: ["coupons"] });
+    },
+    onError: (error: unknown) => {
+      toast("error", getErrorMessage(error));
+    },
+  });
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Coupon> }) =>
+      adminCouponService.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["coupons"] });
+    },
+    onError: (error: unknown) => {
+      toast("error", getErrorMessage(error));
+    },
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => adminCouponService.remove(id),
+    onSuccess: () => {
+      toast("success", "Coupon deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["coupons"] });
+    },
+    onError: (error: unknown) => {
+      toast("error", getErrorMessage(error));
+    },
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -198,57 +153,38 @@ export default function CouponsPage() {
   };
 
   const onSubmit = (data: CouponFormData) => {
+    const payload: Partial<Coupon> = {
+      code: data.code.toUpperCase().trim(),
+      description: data.description,
+      type: data.type,
+      value: data.value,
+      minOrderAmount: data.minOrderAmount || undefined,
+      maxDiscountAmount: data.maxDiscountAmount || undefined,
+      usageLimit: data.usageLimit || undefined,
+      expiresAt: data.expiresAt
+        ? new Date(data.expiresAt).toISOString()
+        : undefined,
+    };
     if (editingId) {
-      setCoupons((prev) =>
-        prev.map((c) =>
-          c.id === editingId
-            ? {
-                ...c,
-                code: data.code.toUpperCase(),
-                description: data.description,
-                type: data.type,
-                value: data.value,
-                minOrderAmount: data.minOrderAmount,
-                maxDiscountAmount: data.maxDiscountAmount || undefined,
-                usageLimit: data.usageLimit || undefined,
-                expiresAt: data.expiresAt
-                  ? new Date(data.expiresAt).toISOString()
-                  : undefined,
-              }
-            : c
-        )
+      updateMutation.mutate(
+        { id: editingId, data: payload },
+        { onSuccess: () => toast("success", "Coupon updated successfully") }
       );
     } else {
-      const newCoupon: Coupon = {
-        id: Date.now().toString(),
-        code: data.code.toUpperCase(),
-        description: data.description,
-        type: data.type,
-        value: data.value,
-        minOrderAmount: data.minOrderAmount || undefined,
-        maxDiscountAmount: data.maxDiscountAmount || undefined,
-        usageLimit: data.usageLimit || undefined,
-        usedCount: 0,
-        expiresAt: data.expiresAt
-          ? new Date(data.expiresAt).toISOString()
-          : undefined,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-      };
-      setCoupons((prev) => [newCoupon, ...prev]);
+      createMutation.mutate(payload);
     }
     setDialogOpen(false);
     reset(defaultFormValues);
   };
 
   const toggleActive = (id: string) => {
-    setCoupons((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, isActive: !c.isActive } : c))
-    );
+    const coupon = coupons.find((c) => c.id === id);
+    if (!coupon) return;
+    updateMutation.mutate({ id, data: { isActive: !coupon.isActive } });
   };
 
   const deleteCoupon = (id: string) => {
-    setCoupons((prev) => prev.filter((c) => c.id !== id));
+    deleteMutation.mutate(id);
   };
 
   const copyCode = (code: string, id: string) => {
@@ -269,7 +205,7 @@ export default function CouponsPage() {
           <h1 className="text-2xl font-bold tracking-tight text-[#1A1A1A]">
             Coupons
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-[#1A1A1A]/50">
             {coupons.length} total coupons &middot;{" "}
             {coupons.filter((c) => c.isActive).length} active
           </p>
@@ -285,7 +221,7 @@ export default function CouponsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <div className="rounded-xl border border-gray-100 bg-white">
+        <div className="rounded-sm border border-[#1A1A1A]/10 bg-white">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -306,12 +242,12 @@ export default function CouponsPage() {
                   <TableRow key={coupon.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <code className="rounded-md bg-[#1A1A1A] px-2.5 py-1 font-mono text-xs font-bold tracking-wider text-[#C9A96E]">
+                        <code className="rounded-sm bg-[#1A1A1A] px-2.5 py-1 font-mono text-xs font-bold tracking-wider text-[#C9A27E]">
                           {coupon.code}
                         </code>
                         <button
                           onClick={() => copyCode(coupon.code, coupon.id)}
-                          className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-[#1A1A1A]"
+                          className="rounded-sm p-1 text-[#1A1A1A]/40 transition-colors hover:bg-[#E8DDD4]/50 hover:text-[#1A1A1A]"
                         >
                           {copiedId === coupon.id ? (
                             <Check className="h-3.5 w-3.5 text-emerald-500" />
@@ -333,7 +269,7 @@ export default function CouponsPage() {
                         ? `${coupon.value}%`
                         : formatCurrency(coupon.value)}
                     </TableCell>
-                    <TableCell className="text-gray-500">
+                    <TableCell className="text-[#1A1A1A]/50">
                       {coupon.minOrderAmount
                         ? formatCurrency(coupon.minOrderAmount)
                         : "—"}
@@ -341,7 +277,7 @@ export default function CouponsPage() {
                     <TableCell>
                       <span className="text-sm">
                         <span className="font-medium">{coupon.usedCount}</span>
-                        <span className="text-gray-400">
+                        <span className="text-[#1A1A1A]/40">
                           {" / "}
                           {coupon.usageLimit || "∞"}
                         </span>
@@ -352,7 +288,7 @@ export default function CouponsPage() {
                         <span
                           className={cn(
                             "text-sm font-medium",
-                            expired ? "text-red-500" : "text-gray-600"
+                            expired ? "text-red-500" : "text-[#1A1A1A]/60"
                           )}
                         >
                           {formatDate(coupon.expiresAt)}
@@ -363,7 +299,7 @@ export default function CouponsPage() {
                           )}
                         </span>
                       ) : (
-                        <span className="text-sm text-gray-400">Never</span>
+                        <span className="text-sm text-[#1A1A1A]/40">Never</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -374,8 +310,8 @@ export default function CouponsPage() {
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
-                        <DropdownMenuTrigger>
-                          <button className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-[#1A1A1A]">
+                        <DropdownMenuTrigger asChild>
+                          <button className="rounded-sm p-1.5 text-[#1A1A1A]/40 transition-colors hover:bg-[#E8DDD4]/50 hover:text-[#1A1A1A]">
                             <MoreHorizontal className="h-4 w-4" />
                           </button>
                         </DropdownMenuTrigger>
@@ -428,7 +364,7 @@ export default function CouponsPage() {
               {...register("description")}
               className="min-h-[60px]"
             />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Select label="Type" {...register("type")}>
                 <option value="percentage">Percentage (%)</option>
                 <option value="fixed">Fixed Amount (PKR)</option>
@@ -441,7 +377,7 @@ export default function CouponsPage() {
                 error={errors.value?.message}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Input
                 label="Min Order Amount"
                 type="number"
@@ -459,7 +395,7 @@ export default function CouponsPage() {
                 />
               )}
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Input
                 label="Usage Limit"
                 type="number"

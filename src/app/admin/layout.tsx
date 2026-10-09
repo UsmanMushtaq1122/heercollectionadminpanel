@@ -24,37 +24,40 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
 
+  // Only redirect to login for protected routes once loading is complete
   useEffect(() => {
     if (!isPublicRoute && !isLoading && !isAuthenticated) {
       router.push("/admin/login");
     }
   }, [isAuthenticated, isLoading, router, isPublicRoute]);
 
-  // Public routes (login, forgot-password, reset-password) render directly
-  // without auth guard or sidebar/header shell
+  // ── Public routes (login, forgot-password, reset-password) ──────────────────
+  // Render children directly — no auth check, no sidebar/header
   if (isPublicRoute) {
     return <>{children}</>;
   }
 
+  // ── Protected routes: show spinner while hydrating auth from localStorage ───
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#F5F0EB]">
+      <div className="flex h-screen items-center justify-center bg-[#F8F5F2]">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#C9A96E] border-t-transparent" />
-          <span className="font-['Playfair_Display'] text-lg font-semibold text-[#1A1A1A]">
-            AA Neddles
+          <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-[#C9A27E] border-t-transparent" />
+          <span className="font-serif text-lg font-semibold tracking-[0.15em] text-[#1A1A1A]">
+            HEER
           </span>
         </div>
       </div>
     );
   }
 
+  // ── Not authenticated & not loading → null while redirect fires ─────────────
   if (!isAuthenticated) {
     return null;
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F0EB]">
+    <div className="min-h-screen max-w-full overflow-x-hidden bg-[#F8F5F2]">
       <div className="hidden md:block">
         <AdminSidebar />
       </div>
@@ -78,13 +81,13 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
       <div
         className={cn(
-          "flex flex-col transition-all duration-300",
+          "flex min-w-0 max-w-full flex-col transition-all duration-300",
           "md:ml-[260px]",
           collapsed && "md:ml-[72px]"
         )}
       >
-        <AdminHeader />
-        <main className="flex-1 p-6">
+        <AdminHeader onMobileMenuOpen={() => setMobileOpen(true)} />
+        <main className="min-w-0 max-w-full flex-1 p-4 md:p-6">
           <ErrorBoundary>
             <motion.div
               initial={{ opacity: 0, y: 8 }}

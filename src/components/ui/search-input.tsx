@@ -38,14 +38,14 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
 
     return (
       <div className="relative w-full">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1A1A1A]/40" />
         <input
           ref={ref}
           type="text"
           value={internalValue}
           onChange={handleChange}
           className={cn(
-            "flex h-10 w-full rounded-lg border border-gray-200 bg-[#F5F0EB]/50 pl-10 pr-9 text-sm text-[#1A1A1A] transition-colors placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E]",
+            "flex h-10 w-full rounded-sm border border-[#1A1A1A]/20 bg-white pl-10 pr-9 text-sm text-[#1A1A1A] transition-all duration-300 placeholder:text-[#1A1A1A]/40 focus:border-[#C9A27E] focus:outline-none focus:ring-2 focus:ring-[#C9A27E]/50",
             className
           )}
           {...props}
@@ -54,7 +54,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-gray-400 hover:text-gray-600"
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-[#1A1A1A]/40 hover:text-[#1A1A1A]"
           >
             <X className="h-4 w-4" />
           </button>

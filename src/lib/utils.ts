@@ -36,10 +36,6 @@ export function formatNumber(num: number): string {
   return new Intl.NumberFormat("en-US").format(num);
 }
 
-export function formatPercent(num: number): string {
-  return `${num >= 0 ? "+" : ""}${num.toFixed(1)}%`;
-}
-
 export function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -48,24 +44,17 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export function truncate(text: string, length: number): string {
-  if (text.length <= length) return text;
-  return text.slice(0, length) + "...";
-}
-
 export function getOrderStatusColor(status: string): string {
   const colors: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-800",
-    confirmed: "bg-blue-100 text-blue-800",
-    processing: "bg-indigo-100 text-indigo-800",
-    quality_check: "bg-purple-100 text-purple-800",
-    shipped: "bg-cyan-100 text-cyan-800",
-    out_for_delivery: "bg-orange-100 text-orange-800",
-    delivered: "bg-green-100 text-green-800",
-    cancelled: "bg-red-100 text-red-800",
-    returned: "bg-gray-100 text-gray-800",
+    pending: "bg-[#C9A27E]/10 text-[#B8906A]",
+    confirmed: "bg-[#E8DDD4] text-[#1A1A1A]",
+    processing: "bg-blue-50 text-blue-700",
+    shipped: "bg-cyan-50 text-cyan-700",
+    delivered: "bg-emerald-50 text-emerald-700",
+    cancelled: "bg-red-50 text-red-600",
+    returned: "bg-[#E8DDD4]/50 text-[#1A1A1A]",
   };
-  return colors[status] || "bg-gray-100 text-gray-800";
+  return colors[status] || "bg-[#E8DDD4]/50 text-[#1A1A1A]";
 }
 
 export function getOrderStatusLabel(status: string): string {
@@ -73,9 +62,7 @@ export function getOrderStatusLabel(status: string): string {
     pending: "Pending",
     confirmed: "Confirmed",
     processing: "Processing",
-    quality_check: "Quality Check",
     shipped: "Shipped",
-    out_for_delivery: "Out for Delivery",
     delivered: "Delivered",
     cancelled: "Cancelled",
     returned: "Returned",
@@ -85,11 +72,11 @@ export function getOrderStatusLabel(status: string): string {
 
 export function getPaymentStatusColor(status: string): string {
   const colors: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-800",
-    paid: "bg-green-100 text-green-800",
-    failed: "bg-red-100 text-red-800",
-    refunded: "bg-orange-100 text-orange-800",
-    partially_refunded: "bg-amber-100 text-amber-800",
+    pending: "bg-yellow-50 text-yellow-700",
+    paid: "bg-emerald-50 text-emerald-700",
+    failed: "bg-red-50 text-red-600",
+    refunded: "bg-orange-50 text-orange-700",
+    partially_refunded: "bg-amber-50 text-amber-700",
   };
-  return colors[status] || "bg-gray-100 text-gray-800";
+  return colors[status] || "bg-[#E8DDD4]/50 text-[#1A1A1A]";
 }

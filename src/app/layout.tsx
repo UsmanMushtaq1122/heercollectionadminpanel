@@ -1,30 +1,23 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display, Cormorant_Garamond } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const playfair = Playfair_Display({
+const geistSans = Geist({
   subsets: ["latin"],
-  variable: "--font-playfair",
+  variable: "--font-geist-sans",
   display: "swap",
 });
 
-const inter = Inter({
+const geistMono = Geist_Mono({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-geist-mono",
   display: "swap",
-});
-
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  variable: "--font-cormorant",
-  display: "swap",
-  weight: ["300", "400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "AA Neddles Admin",
+  title: "Heer Collection Admin",
   description:
-    "Admin panel for AA Neddles — a luxury Pakistani fashion brand offering premium ready-to-wear, haute couture, and bespoke tailoring.",
+    "Admin panel for Heer Collection — premium luxury women's fashion. Manage products, orders, customers, and content.",
 };
 
 export default function RootLayout({
@@ -34,7 +27,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" data-scroll-behavior="smooth">
-      <body className={`${playfair.variable} ${inter.variable} ${cormorant.variable} font-['Inter',sans-serif] antialiased`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} min-h-full flex flex-col bg-[#F8F5F2] text-[#1A1A1A] antialiased`}
+      >
         {children}
       </body>
     </html>

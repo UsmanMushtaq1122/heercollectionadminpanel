@@ -4,29 +4,24 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { setCredentials, setLoading } from "@/store/slices/authSlice";
-import { User } from "@/types";
+import { api } from "@/lib/api";
+import type { User } from "@/types";
 
-// ─── Mock Admin Credentials ────────────────────────────────────────────────
-// WARNING: These are MOCK credentials for development ONLY.
-// Remove this entire block and replace with real backend authentication
-// before deploying to production. Never hardcode credentials in source.
-const MOCK_CREDENTIALS = [
-  { email: "admin@neddles.com",    password: "password123", role: "super_admin" as const },
-  { email: "admin@aanneddles.com", password: "admin123",    role: "super_admin" as const },
-];
+// ─── Cookie helpers ────────────────────────────────────────────────────────────
 
-const MOCK_TOKEN = "mock-access-token-aa-neddles-2026";
-
-// Helpers: cookie r/w so the middleware (server-side) can see the token
 function setCookie(name: string, value: string, days = 7) {
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${name}=${value}; expires=${expires}; path=/; SameSite=Strict${secure}`;
+  // Use Lax (not Strict) so the cookie is sent on top-level navigations like
+  // router.replace() which is what the proxy needs to see.
+  document.cookie = `${name}=${value}; expires=${expires}; path=/; SameSite=Lax${secure}`;
 }
+
 function deleteCookie(name: string) {
-  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict`;
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
 }
-// ───────────────────────────────────────────────────────────────────────────
+
+// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useAuth() {
   const dispatch = useAppDispatch();
@@ -35,15 +30,23 @@ export function useAuth() {
   );
   const router = useRouter();
 
-  // On mount: restore session from localStorage
   useEffect(() => {
+    // isLoading starts as `true` (set in authSlice initialState).
+    // We only need to hydrate once on first mount.
     const initAuth = () => {
       try {
         const storedToken = localStorage.getItem("accessToken");
-        const storedUser  = localStorage.getItem("user");
+        const storedUser = localStorage.getItem("user");
 
         if (storedToken && storedUser) {
           const parsedUser: User = JSON.parse(storedUser);
+
+          // ✅ CRITICAL FIX: Re-sync the cookie every time we restore from
+          // localStorage. The proxy (proxy.ts) reads cookies, NOT localStorage.
+          // Without this, router.replace('/admin') gets blocked by the proxy
+          // and redirects back to login → infinite "Redirecting..." loop.
+          setCookie("accessToken", storedToken, 7);
+
           dispatch(
             setCredentials({
               user: parsedUser,
@@ -51,61 +54,54 @@ export function useAuth() {
               refreshToken: localStorage.getItem("refreshToken") || "",
             })
           );
-          return;
+          return; // setCredentials already sets isLoading = false
         }
       } catch {
-        // corrupt data — clear everything
+        // Corrupted storage — clear everything and start fresh
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("user");
         deleteCookie("accessToken");
       }
+
+      // No valid session found
       dispatch(setLoading(false));
     };
 
     initAuth();
-  }, [dispatch]);
+  }, [dispatch]); // Run once on mount
 
-  // ── Login ──────────────────────────────────────────────────────────────
+  // ─── login ──────────────────────────────────────────────────────────────────
+
   const login = async (email: string, password: string) => {
-    // Simulate a short network delay
-    await new Promise((r) => setTimeout(r, 500));
+    const response = await api.post<{
+      user: User;
+      token: string;
+      refreshToken: string;
+    }>("/auth/login", { email, password });
 
-    const match = MOCK_CREDENTIALS.find(
-      (c) =>
-        c.email.toLowerCase() === email.toLowerCase() &&
-        c.password === password
-    );
-
-    if (!match) {
-      throw new Error(
-        "Invalid email or password. Please check your credentials and try again."
-      );
+    if (!response.token || !response.user) {
+      throw new Error("Invalid email or password. Please check your credentials and try again.");
     }
 
-    const mockUser: User = {
-      id: "admin-001",
-      name: "Admin",
-      email: match.email,
-      role: match.role,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-    };
+    if (response.user.role?.toUpperCase() === "CUSTOMER") {
+      throw new Error("Access denied. This portal is for admin users only.");
+    }
 
-    const token        = MOCK_TOKEN;
-    const refreshToken = "mock-refresh-token";
+    const { user: loggedUser, token, refreshToken } = response;
 
-    // Persist in localStorage (client reads) AND cookie (middleware reads)
-    localStorage.setItem("accessToken",  token);
+    // Persist to both storage AND cookie (cookie is what the proxy reads)
+    localStorage.setItem("accessToken", token);
     localStorage.setItem("refreshToken", refreshToken);
-    localStorage.setItem("user",         JSON.stringify(mockUser));
+    localStorage.setItem("user", JSON.stringify(loggedUser));
     setCookie("accessToken", token, 7);
 
-    dispatch(setCredentials({ user: mockUser, accessToken: token, refreshToken }));
-    return { user: mockUser, accessToken: token, refreshToken };
+    dispatch(setCredentials({ user: loggedUser, accessToken: token, refreshToken }));
+    return { user: loggedUser, accessToken: token, refreshToken };
   };
 
-  // ── Logout ─────────────────────────────────────────────────────────────
+  // ─── logout ─────────────────────────────────────────────────────────────────
+
   const logout = (queryClient?: { clear: () => void }) => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
@@ -116,11 +112,11 @@ export function useAuth() {
     router.push("/admin/login");
   };
 
-  // ── Permission check ───────────────────────────────────────────────────
+  // ─── permissions ────────────────────────────────────────────────────────────
+
   const hasPermission = (_resource: string, _action: string): boolean => {
     if (!user) return false;
-    if (user.role === "super_admin") return true;
-    return false;
+    return user.role?.toUpperCase() !== "CUSTOMER";
   };
 
   return { user, isAuthenticated, isLoading, accessToken, login, logout, hasPermission };

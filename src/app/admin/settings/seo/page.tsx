@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Save, Search, Globe, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { seoSettingsSchema } from "@/lib/validations";
 import { useToast } from "@/components/ui/toast";
+import { adminSettingsService } from "@/lib/admin-services";
 
 type SEOForm = {
   metaTitle: string;
@@ -21,25 +22,19 @@ type SEOForm = {
   canonicalUrl: boolean;
 };
 
-const MOCK_SEO: SEOForm = {
-  metaTitle: "AA Neddles | Luxury Fashion & Premium Clothing Pakistan",
-  metaDescription:
-    "Discover handcrafted luxury fashion at AA Neddles. Premium kurtis, suits, sarees & accessories with timeless Pakistani elegance.",
-  baseUrl: "https://aaneddles.com",
-  canonicalUrl: true,
-};
-
-function saveSEO(_data: SEOForm): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 800));
-}
-
 export default function SEOSettingsPage() {
   const { toast } = useToast();
+
+  const { data: seo } = useQuery({
+    queryKey: ["seo-settings"],
+    queryFn: () => adminSettingsService.getSEO(),
+  });
+
   const [titleCharCount, setTitleCharCount] = useState(
-    MOCK_SEO.metaTitle.length
+    seo?.metaTitle.length ?? 0
   );
   const [descCharCount, setDescCharCount] = useState(
-    MOCK_SEO.metaDescription.length
+    seo?.metaDescription.length ?? 0
   );
 
   const {
@@ -47,18 +42,41 @@ export default function SEOSettingsPage() {
     handleSubmit,
     watch,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<SEOForm>({
     resolver: zodResolver(seoSettingsSchema) as any,
-    defaultValues: MOCK_SEO,
+    defaultValues: {
+      metaTitle: seo?.metaTitle ?? "",
+      metaDescription: seo?.metaDescription ?? "",
+      baseUrl: "https://heercollection.com",
+      canonicalUrl: true,
+    },
   });
+
+  useEffect(() => {
+    if (seo) {
+      reset({
+        metaTitle: seo.metaTitle,
+        metaDescription: seo.metaDescription,
+        baseUrl: "https://heercollection.com",
+        canonicalUrl: true,
+      });
+      setTitleCharCount(seo.metaTitle.length);
+      setDescCharCount(seo.metaDescription.length);
+    }
+  }, [seo, reset]);
 
   const metaTitle = watch("metaTitle");
   const metaDescription = watch("metaDescription");
   const baseUrl = watch("baseUrl");
 
   const saveMutation = useMutation({
-    mutationFn: saveSEO,
+    mutationFn: (data: SEOForm) =>
+      adminSettingsService.updateSEO({
+        metaTitle: data.metaTitle,
+        metaDescription: data.metaDescription,
+      }),
     onSuccess: () => {
       toast("success", "SEO settings saved successfully");
     },
@@ -92,8 +110,8 @@ export default function SEOSettingsPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#C9A96E]/10">
-                  <Search className="h-5 w-5 text-[#7A6543]" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-sm bg-[#C9A27E]/10">
+                  <Search className="h-5 w-5 text-[#B8906A]" />
                 </div>
                 <div>
                   <CardTitle>Default Meta Tags</CardTitle>
@@ -115,12 +133,12 @@ export default function SEOSettingsPage() {
                   }}
                 />
                 <div className="mt-1.5 flex justify-between">
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-[#1A1A1A]/40">
                     Appears in search engine results and browser tabs
                   </p>
                   <span
                     className={`text-xs font-medium ${
-                      titleCharCount > 60 ? "text-red-500" : "text-gray-400"
+                      titleCharCount > 60 ? "text-red-500" : "text-[#1A1A1A]/40"
                     }`}
                   >
                     {titleCharCount}/60
@@ -139,12 +157,12 @@ export default function SEOSettingsPage() {
                   }}
                 />
                 <div className="mt-1.5 flex justify-between">
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-[#1A1A1A]/40">
                     Summary shown below the title in search results
                   </p>
                   <span
                     className={`text-xs font-medium ${
-                      descCharCount > 160 ? "text-red-500" : "text-gray-400"
+                      descCharCount > 160 ? "text-red-500" : "text-[#1A1A1A]/40"
                     }`}
                   >
                     {descCharCount}/160
@@ -156,8 +174,8 @@ export default function SEOSettingsPage() {
                 <p className="mb-3 text-sm font-medium text-[#1A1A1A]">
                   Search Preview
                 </p>
-                <div className="rounded-xl border border-gray-200 bg-white p-5">
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                <div className="rounded-sm border border-[#1A1A1A]/10 bg-white p-5">
+                  <div className="flex items-center gap-2 text-xs text-[#1A1A1A]/50">
                     <Globe className="h-3.5 w-3.5" />
                     <span>{baseUrl}</span>
                   </div>
@@ -167,7 +185,7 @@ export default function SEOSettingsPage() {
                   <p className="mt-1 text-sm text-green-700">
                     {baseUrl}
                   </p>
-                  <p className="mt-1 text-sm text-gray-600">
+                  <p className="mt-1 text-sm text-[#1A1A1A]/60">
                     {metaDescription ||
                       "A brief description of your page content appears here..."}
                   </p>
@@ -185,8 +203,8 @@ export default function SEOSettingsPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#C9A96E]/10">
-                  <Globe className="h-5 w-5 text-[#7A6543]" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-sm bg-[#C9A27E]/10">
+                  <Globe className="h-5 w-5 text-[#B8906A]" />
                 </div>
                 <div>
                   <CardTitle>URL Settings</CardTitle>
@@ -202,14 +220,14 @@ export default function SEOSettingsPage() {
                 {...register("baseUrl")}
                 error={errors.baseUrl?.message}
               />
-              <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-[#F5F0EB]/30 px-5 py-4">
+              <div className="flex items-center justify-between rounded-sm border border-[#1A1A1A]/10 bg-[#F8F5F2]/30 px-5 py-4">
                 <div className="flex items-center gap-3">
-                  <Eye className="h-4 w-4 text-gray-400" />
+                  <Eye className="h-4 w-4 text-[#1A1A1A]/40" />
                   <div>
                     <p className="text-sm font-medium text-[#1A1A1A]">
                       Canonical URL
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-[#1A1A1A]/50">
                       Prevent duplicate content issues in search engines
                     </p>
                   </div>

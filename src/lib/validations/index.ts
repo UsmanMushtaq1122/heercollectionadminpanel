@@ -23,27 +23,117 @@ export const resetPasswordSchema = z.object({
   path: ["confirmPassword"],
 });
 
+// Helper: optional number that gracefully handles NaN from valueAsNumber inputs
+const nanSafeOptionalNum = z
+  .union([z.number(), z.nan(), z.null(), z.undefined()])
+  .transform((v) =>
+    v === null || v === undefined || (typeof v === "number" && isNaN(v)) ? undefined : v
+  )
+  .pipe(z.number().optional());
+
+const nanSafeOptionalPositiveNum = nanSafeOptionalNum.refine(
+  (value) => value === undefined || value > 0,
+  "Price must be greater than 0"
+);
+
+// Helper: required number that defaults to 0 on NaN/empty
+const nanSafeNum = (min = 0, msg?: string) =>
+  z
+    .union([z.number(), z.nan(), z.null(), z.undefined()])
+    .transform((v) =>
+      v === null || v === undefined || (typeof v === "number" && isNaN(v)) ? 0 : Number(v)
+    )
+    .pipe(z.number().min(min, msg));
+
 export const productSchema = z.object({
-  name: z.string().min(1, "Product name is required"),
-  slug: z.string().optional(),
-  description: z.string().min(1, "Description is required"),
-  shortDescription: z.string().optional(),
-  price: z.number().min(0, "Price must be positive"),
-  compareAtPrice: z.number().optional(),
-  costPrice: z.number().optional(),
+  name: z
+    .string()
+    .min(1, "Product name is required")
+    .min(2, "Product name must be at least 2 characters"),
+  slug: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
+  shortDescription: z.string().optional().nullable(),
+  price: nanSafeNum(0.01, "Price must be greater than 0"),
+  compareAtPrice: nanSafeOptionalPositiveNum,
+  costPrice: nanSafeOptionalPositiveNum,
+  currency: z.string().default("PKR"),
   sku: z.string().min(1, "SKU is required"),
-  barcode: z.string().optional(),
-  stock: z.number().min(0, "Stock must be non-negative"),
-  lowStockThreshold: z.number().default(5),
-  weight: z.number().optional(),
-  status: z.enum(["active", "draft", "archived"]),
+  barcode: z.string().optional().nullable(),
+  stock: nanSafeNum(0, "Stock must be non-negative"),
+  lowStockThreshold: z
+    .union([z.number(), z.nan(), z.null(), z.undefined()])
+    .transform((v) =>
+      v === null || v === undefined || (typeof v === "number" && isNaN(v)) ? 5 : Number(v)
+    )
+    .pipe(z.number().default(5)),
+  weight: nanSafeOptionalNum,
+  status: z.preprocess(
+    (val) => (typeof val === "string" ? val.toLowerCase() : val),
+    z.enum(["active", "draft", "archived"])
+  ),
   isFeatured: z.boolean().default(false),
   isNewArrival: z.boolean().default(false),
   isBestSeller: z.boolean().default(false),
+  inStock: z.boolean().default(true),
+  collection: z.string().optional().nullable(),
+  thumbnail: z.string().optional().nullable(),
   categoryIds: z.array(z.string()).min(1, "At least one category is required"),
+  sizes: z
+    .array(
+      z.union([
+        z.object({
+          id: z.string().optional(),
+          name: z.string(),
+          label: z.string().optional(),
+          inStock: z.boolean().default(true),
+        }),
+        z.string().transform((name) => ({
+          id: name.toLowerCase().replace(/\s+/g, "-"),
+          name,
+          label: name,
+          inStock: true,
+        })),
+      ])
+    )
+    .default([]),
+  colors: z
+    .array(
+      z.union([
+        z.object({
+          id: z.string().optional(),
+          name: z.string(),
+          hex: z.string().default("#C9A27E"),
+          swatch: z.string().optional().nullable(),
+        }),
+        z.string().transform((name) => ({
+          id: name.toLowerCase().replace(/\s+/g, "-"),
+          name,
+          hex: "#C9A27E",
+        })),
+      ])
+    )
+    .default([]),
+  materials: z.array(z.string()).default([]),
+  careInstructions: z.array(z.string()).default([]),
+  fabric: z.string().optional().nullable(),
+  descriptionSections: z
+    .object({
+      color: z.string().optional().nullable(),
+      note: z.string().optional().nullable(),
+      sections: z
+        .array(
+          z.object({
+            title: z.string(),
+            items: z.array(z.string()),
+          })
+        )
+        .default([]),
+    })
+    .optional()
+    .nullable(),
   tags: z.array(z.string()).default([]),
-  seoTitle: z.string().optional(),
-  seoDescription: z.string().optional(),
+  seoTitle: z.string().optional().nullable(),
+  seoDescription: z.string().optional().nullable(),
 });
 
 export const categorySchema = z.object({
@@ -73,11 +163,21 @@ export const bannerSchema = z.object({
 export const testimonialSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
   customerImage: z.string().optional(),
+  location: z.string().optional(),
   content: z.string().min(1, "Content is required"),
   rating: z.number().min(1).max(5),
   type: z.enum(["gallery", "video", "instagram", "story"]),
   image: z.string().optional(),
   videoUrl: z.string().optional(),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().default(0),
+});
+
+export const collectionSchema = z.object({
+  name: z.string().min(1, "Collection name is required"),
+  slug: z.string().optional(),
+  description: z.string().optional(),
+  image: z.string().optional(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().default(0),
 });
@@ -144,14 +244,11 @@ export const settingsSchema = z.object({
   shippingCost: z.number().min(0).optional(),
   freeShippingThreshold: z.number().min(0).optional(),
   codFee: z.number().min(0).optional(),
+  taxRate: z.number().min(0).max(100).optional(),
+  instagramHandle: z.string().optional(),
+  marqueeText: z.string().optional(),
   returnWindowDays: z.number().min(0),
   exchangeWindowDays: z.number().min(0),
-  socialLinks: z.object({
-    instagram: z.string().optional(),
-    facebook: z.string().optional(),
-    tiktok: z.string().optional(),
-    youtube: z.string().optional(),
-  }),
   seoDefaults: z.object({
     metaTitle: z.string().optional(),
     metaDescription: z.string().optional(),
@@ -159,11 +256,20 @@ export const settingsSchema = z.object({
 });
 
 export const shippingSchema = z.object({
-  shippingCost: z.number().min(0),
-  expressShippingCost: z.number().min(0),
-  freeShippingThreshold: z.number().min(0),
-  codFee: z.number().min(0),
+  shippingCost: z.number().finite().min(0),
+  expressShippingCost: z.number().finite().min(0),
+  freeShippingThreshold: z.number().finite().min(0),
+  codFee: z.number().finite().min(0),
   codEnabled: z.boolean(),
+  advancedShippingEnabled: z.boolean(),
+  additionalShippingChargeEnabled: z.boolean().default(false),
+  additionalShippingCharge: z.number().finite().min(0).default(0),
+  expressAdditionalChargeEnabled: z.boolean().default(false),
+  expressAdditionalCharge: z.number().finite().min(0).default(0),
+  perItemChargeEnabled: z.boolean().default(false),
+  perItemCharge: z.number().finite().min(0).default(0),
+  perKgChargeEnabled: z.boolean().default(false),
+  perKgCharge: z.number().finite().min(0).default(0),
 });
 
 export const seoSettingsSchema = z.object({

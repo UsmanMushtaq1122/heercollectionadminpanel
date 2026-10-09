@@ -59,7 +59,7 @@ function DataTableInner<TData>({
         header: ({ table }) => (
           <input
             type="checkbox"
-            className="h-4 w-4 rounded border-gray-300 accent-[#C9A96E]"
+            className="h-4 w-4 rounded-sm border-[#1A1A1A]/20 accent-[#C9A27E]"
             checked={table.getIsAllPageRowsSelected()}
             onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
           />
@@ -67,7 +67,7 @@ function DataTableInner<TData>({
         cell: ({ row }) => (
           <input
             type="checkbox"
-            className="h-4 w-4 rounded border-gray-300 accent-[#C9A96E]"
+            className="h-4 w-4 rounded-sm border-[#1A1A1A]/20 accent-[#C9A27E]"
             checked={row.getIsSelected()}
             onChange={(e) => row.toggleSelected(e.target.checked)}
           />
@@ -120,17 +120,17 @@ function DataTableInner<TData>({
             className="max-w-sm"
           />
           {bulkSelect && Object.keys(rowSelection).length > 0 && (
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-[#1A1A1A]/50">
               {Object.keys(rowSelection).length} row(s) selected
             </span>
           )}
         </div>
       )}
-      <div className="rounded-xl border border-gray-100 bg-white">
+      <div className="rounded-sm border border-[#1A1A1A]/10 bg-white shadow-sm">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="border-b border-gray-100 hover:bg-transparent">
+              <TableRow key={headerGroup.id} className="border-b border-[#1A1A1A]/10 hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
                   <TableHead key={header.id}>
                     {header.isPlaceholder ? null : (
@@ -151,16 +151,16 @@ function DataTableInner<TData>({
                               className={cn(
                                 "h-3 w-3",
                                 header.column.getIsSorted() === "asc"
-                                  ? "text-[#7A6543]"
-                                  : "text-gray-300"
+                                  ? "text-[#B8906A]"
+                                  : "text-[#1A1A1A]/20"
                               )}
                             />
                             <ChevronDown
                               className={cn(
                                 "h-3 w-3 -mt-1",
                                 header.column.getIsSorted() === "desc"
-                                  ? "text-[#7A6543]"
-                                  : "text-gray-300"
+                                  ? "text-[#B8906A]"
+                                  : "text-[#1A1A1A]/20"
                               )}
                             />
                           </span>
@@ -187,7 +187,7 @@ function DataTableInner<TData>({
                   <TableRow>
                     <TableCell
                       colSpan={allColumns.length}
-                      className="h-24 text-center text-gray-500"
+                      className="h-24 text-center text-[#1A1A1A]/50"
                     >
                       No results found.
                     </TableCell>
@@ -198,7 +198,7 @@ function DataTableInner<TData>({
                       key={row.id}
                       data-state={row.getIsSelected() && "selected"}
                       className={cn(
-                        row.getIsSelected() && "bg-[#C9A96E]/5"
+                        row.getIsSelected() && "bg-[#C9A27E]/5"
                       )}
                     >
                       {row.getVisibleCells().map((cell) => (

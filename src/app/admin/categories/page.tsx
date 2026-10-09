@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useCallback }  from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -19,6 +19,8 @@ import {
   Search,
   X,
   Image as ImageIcon,
+  Layers,
+  AlertCircle,
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { categorySchema } from "@/lib/validations"
@@ -26,8 +28,6 @@ import { cn } from "@/lib/utils"
 import type { Category } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -44,7 +44,8 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { EmptyState } from "@/components/ui/empty-state"
-import { StatusBadge } from "@/components/ui/status-badge"
+import { useToast } from "@/components/ui/toast"
+import { adminCategoryService } from "@/lib/admin-services"
 
 interface CategoryItem extends Category {
   productCount: number
@@ -55,342 +56,42 @@ interface CategoryItem extends Category {
   subcategories?: CategoryItem[]
 }
 
-const mockCategories: CategoryItem[] = [
-  {
-    id: "1",
-    name: "Unstitched",
-    slug: "unstitched",
-    description: "Premium unstitched fabric collections for custom tailoring",
-    productCount: 145,
-    subcategoryCount: 6,
-    isActive: true,
-    sortOrder: 0,
-    createdAt: "2024-01-15",
-    image: "/categories/unstitched.jpg",
-    children: [
-      {
-        id: "1-1",
-        name: "Lawn",
-        slug: "lawn",
-        description: "Premium lawn fabric",
-        productCount: 42,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 0,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "1-2",
-        name: "Silk",
-        slug: "silk",
-        description: "Luxurious silk collections",
-        productCount: 28,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 1,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "1-3",
-        name: "Chiffon",
-        slug: "chiffon",
-        description: "Elegant chiffon fabrics",
-        productCount: 35,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 2,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "1-4",
-        name: "Cotton",
-        slug: "cotton",
-        description: "Premium cotton fabrics",
-        productCount: 22,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 3,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "1-5",
-        name: "Organza",
-        slug: "organza",
-        description: "Delicate organza collection",
-        productCount: 12,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 4,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "1-6",
-        name: "Karandi",
-        slug: "karandi",
-        description: "Winter karandi collection",
-        productCount: 6,
-        subcategoryCount: 0,
-        isActive: false,
-        sortOrder: 5,
-        createdAt: "2024-01-15",
-      },
-    ],
-  },
-  {
-    id: "2",
-    name: "Stitched",
-    slug: "stitched",
-    description: "Ready to wear stitched luxury outfits",
-    productCount: 89,
-    subcategoryCount: 5,
-    isActive: true,
-    sortOrder: 1,
-    createdAt: "2024-01-15",
-    image: "/categories/stitched.jpg",
-    children: [
-      {
-        id: "2-1",
-        name: "Kurtis",
-        slug: "kurtis",
-        description: "Designer kurtis",
-        productCount: 30,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 0,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "2-2",
-        name: "Suits",
-        slug: "suits",
-        description: "Formal suits",
-        productCount: 24,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 1,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "2-3",
-        name: "Lehengas",
-        slug: "lehengas",
-        description: "Bridal and party lehengas",
-        productCount: 15,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 2,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "2-4",
-        name: "Shalwar Kameez",
-        slug: "shalwar-kameez",
-        description: "Traditional shalwar kameez",
-        productCount: 12,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 3,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "2-5",
-        name: "Maxi Dresses",
-        slug: "maxi-dresses",
-        description: "Flowing maxi dresses",
-        productCount: 8,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 4,
-        createdAt: "2024-01-15",
-      },
-    ],
-  },
-  {
-    id: "3",
-    name: "Pret",
-    slug: "pret",
-    description: "Contemporary ready-to-wear pret collections",
-    productCount: 67,
-    subcategoryCount: 4,
-    isActive: true,
-    sortOrder: 2,
-    createdAt: "2024-01-15",
-    image: "/categories/pret.jpg",
-    children: [
-      {
-        id: "3-1",
-        name: "Casual Pret",
-        slug: "casual-pret",
-        description: "Everyday casual wear",
-        productCount: 25,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 0,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "3-2",
-        name: "Formal Pret",
-        slug: "formal-pret",
-        description: "Elegant formal wear",
-        productCount: 18,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 1,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "3-3",
-        name: "Fusion Wear",
-        slug: "fusion-wear",
-        description: "East meets west",
-        productCount: 14,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 2,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "3-4",
-        name: "Workwear",
-        slug: "workwear",
-        description: "Professional attire",
-        productCount: 10,
-        subcategoryCount: 0,
-        isActive: false,
-        sortOrder: 3,
-        createdAt: "2024-01-15",
-      },
-    ],
-  },
-  {
-    id: "4",
-    name: "Accessories",
-    slug: "accessories",
-    description: "Luxury accessories and embellishments",
-    productCount: 52,
-    subcategoryCount: 5,
-    isActive: true,
-    sortOrder: 3,
-    createdAt: "2024-01-15",
-    image: "/categories/accessories.jpg",
-    children: [
-      {
-        id: "4-1",
-        name: "Dupattas",
-        slug: "dupattas",
-        description: "Embroidered dupattas",
-        productCount: 18,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 0,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "4-2",
-        name: "Clutches",
-        slug: "clutches",
-        description: "Designer clutches",
-        productCount: 10,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 1,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "4-3",
-        name: "Shawls",
-        slug: "shawls",
-        description: "Luxury shawls",
-        productCount: 12,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 2,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "4-4",
-        name: "Jewelry",
-        slug: "jewelry",
-        description: "Statement jewelry pieces",
-        productCount: 7,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 3,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "4-5",
-        name: "Scarves",
-        slug: "scarves",
-        description: "Premium scarves",
-        productCount: 5,
-        subcategoryCount: 0,
-        isActive: false,
-        sortOrder: 4,
-        createdAt: "2024-01-15",
-      },
-    ],
-  },
-  {
-    id: "5",
-    name: "Fabrics",
-    slug: "fabrics",
-    description: "Raw fabrics by the yard for custom creations",
-    productCount: 38,
-    subcategoryCount: 4,
-    isActive: true,
-    sortOrder: 4,
-    createdAt: "2024-01-15",
-    image: "/categories/fabrics.jpg",
-    children: [
-      {
-        id: "5-1",
-        name: "Raw Silk",
-        slug: "raw-silk",
-        description: "Premium raw silk fabric",
-        productCount: 12,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 0,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "5-2",
-        name: "Velvet",
-        slug: "velvet",
-        description: "Luxurious velvet fabric",
-        productCount: 10,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 1,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "5-3",
-        name: "Net",
-        slug: "net",
-        description: "Decorative net fabric",
-        productCount: 8,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 2,
-        createdAt: "2024-01-15",
-      },
-      {
-        id: "5-4",
-        name: "Georgette",
-        slug: "georgette",
-        description: "Flowing georgette",
-        productCount: 8,
-        subcategoryCount: 0,
-        isActive: true,
-        sortOrder: 3,
-        createdAt: "2024-01-15",
-      },
-    ],
-  },
-]
+function buildCategoryTree(cats: Category[]): CategoryItem[] {
+  const byId = new Map<string, Category>(cats.map((c) => [c.id, c]))
+  const itemMap = new Map<string, CategoryItem>()
+  cats.forEach((c) => {
+    itemMap.set(c.id, {
+      ...c,
+      productCount: c.productCount ?? 0,
+      subcategoryCount: 0,
+      image: c.image,
+      children: [],
+      subcategories: [],
+    })
+  })
+
+  const sortChildren = (item: CategoryItem) => {
+    item.children?.sort((a, b) => a.sortOrder - b.sortOrder)
+    item.subcategories?.sort((a, b) => a.sortOrder - b.sortOrder)
+  }
+
+  const roots: CategoryItem[] = []
+  itemMap.forEach((item, id) => {
+    const parentId = byId.get(id)?.parentId
+    if (parentId && itemMap.has(parentId)) {
+      const parent = itemMap.get(parentId)!
+      parent.children!.push(item)
+      parent.subcategories!.push(item)
+      parent.subcategoryCount = parent.children!.length
+    } else {
+      roots.push(item)
+    }
+  })
+
+  roots.sort((a, b) => a.sortOrder - b.sortOrder)
+  roots.forEach(sortChildren)
+  return roots
+}
 
 interface CategoryFormData {
   name: string
@@ -404,6 +105,7 @@ interface CategoryFormData {
 
 export default function CategoriesPage() {
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [expandedIds, setExpandedIds] = useState<string[]>(["1", "2", "3", "4", "5"])
   const [searchQuery, setSearchQuery] = useState("")
@@ -411,6 +113,12 @@ export default function CategoriesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(null)
   const [deletingCategory, setDeletingCategory] = useState<CategoryItem | null>(null)
+
+  // Image upload state
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const {
     register,
@@ -432,44 +140,92 @@ export default function CategoriesPage() {
     },
   })
 
-  const { data: categories = mockCategories, isLoading } = useQuery({
+  const handleImageSelect = useCallback((file: File) => {
+    if (!file.type.startsWith("image/")) return
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Image must be less than 10MB")
+      return
+    }
+    setImageFile(file)
+    const reader = new FileReader()
+    reader.onload = (e) => setImagePreview(e.target?.result as string)
+    reader.readAsDataURL(file)
+  }, [])
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleImageSelect(file)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) handleImageSelect(file)
+  }
+
+  const clearImage = () => {
+    setImageFile(null)
+    setImagePreview(null)
+    setValue("image", "")
+    if (fileInputRef.current) fileInputRef.current.value = ""
+  }
+
+  const {
+    data: categories = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["categories"],
     queryFn: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      return mockCategories
+      const res = await adminCategoryService.list()
+      return buildCategoryTree(res.filter((category) => category.slug !== "uncategorized"))
     },
+    retry: 1,
   })
 
   const createMutation = useMutation({
-    mutationFn: async (data: CategoryFormData) => {
-      await new Promise((resolve) => setTimeout(resolve, 800))
-      return { id: Date.now().toString(), ...data }
-    },
+    mutationFn: (formData: FormData) =>
+      adminCategoryService.createWithImage(formData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] })
       setIsDialogOpen(false)
       reset()
+      clearImage()
+      toast("success", "Category created successfully")
+    },
+    onError: () => {
+      toast("error", "Failed to create category")
     },
   })
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: CategoryFormData }) => {
-      await new Promise((resolve) => setTimeout(resolve, 800))
-      return { id, ...data }
-    },
+    mutationFn: ({ id, formData }: { id: string; formData: FormData }) =>
+      adminCategoryService.updateWithImage(id, formData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] })
       setIsDialogOpen(false)
       setEditingCategory(null)
       reset()
+      clearImage()
+      toast("success", "Category updated successfully")
     },
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await new Promise((resolve) => setTimeout(resolve, 800))
-      return id
-    },
+    mutationFn: (id: string) => adminCategoryService.remove(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] })
       setIsDeleteDialogOpen(false)
@@ -478,10 +234,8 @@ export default function CategoriesPage() {
   })
 
   const toggleMutation = useMutation({
-    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      return { id, isActive }
-    },
+    mutationFn: ({ id }: { id: string; isActive: boolean }) =>
+      adminCategoryService.toggle(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] })
     },
@@ -497,11 +251,14 @@ export default function CategoriesPage() {
     setEditingCategory(category)
     setValue("name", category.name)
     setValue("description", category.description || "")
-    setValue("parentId", "")
+    setValue("parentId", category.parentId || "")
     setValue("image", category.image || "")
     setValue("seoTitle", category.name)
     setValue("seoDescription", category.description || "")
     setValue("isActive", category.isActive)
+    // Show existing image as preview
+    setImageFile(null)
+    setImagePreview(category.image || null)
     setIsDialogOpen(true)
   }
 
@@ -516,14 +273,27 @@ export default function CategoriesPage() {
       seoDescription: "",
       isActive: true,
     })
+    clearImage()
     setIsDialogOpen(true)
   }
 
   const onSubmit = (data: any) => {
+    const formData = new FormData()
+    formData.append("name", data.name)
+    formData.append("description", data.description || "")
+    formData.append("parentId", data.parentId || "")
+    formData.append("seoTitle", data.seoTitle || "")
+    formData.append("seoDescription", data.seoDescription || "")
+    formData.append("isActive", String(data.isActive))
+    if (imageFile) {
+      formData.append("image", imageFile)
+    } else if (data.image) {
+      formData.append("image", data.image)
+    }
     if (editingCategory) {
-      updateMutation.mutate({ id: editingCategory.id, data })
+      updateMutation.mutate({ id: editingCategory.id, formData })
     } else {
-      createMutation.mutate(data)
+      createMutation.mutate(formData)
     }
   }
 
@@ -563,8 +333,8 @@ export default function CategoriesPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           className={cn(
-            "group border border-[#F5F0EB]/10 bg-[#1A1A1A] hover:border-[#C9A96E]/30 transition-all duration-300",
-            isChild ? "ml-8 border-l-2 border-l-[#C9A96E]/30" : "rounded-lg"
+            "group border border-[#F8F5F2]/10 bg-[#1A1A1A] hover:border-[#C9A27E]/30 transition-all duration-300",
+            isChild ? "ml-8 border-l-2 border-l-[#C9A27E]/30" : "rounded-sm"
           )}
         >
           {viewMode === "grid" ? (
@@ -574,7 +344,7 @@ export default function CategoriesPage() {
                   {hasChildren && !isChild && (
                     <button
                       onClick={() => toggleExpand(category.id)}
-                      className="text-[#F5F0EB]/50 hover:text-[#C9A96E] transition-colors"
+                      className="text-[#F8F5F2]/50 hover:text-[#C9A27E] transition-colors"
                     >
                       {isExpanded ? (
                         <ChevronDown className="w-4 h-4" />
@@ -583,18 +353,18 @@ export default function CategoriesPage() {
                       )}
                     </button>
                   )}
-                  <div className="w-12 h-12 rounded-lg bg-[#F5F0EB]/5 flex items-center justify-center overflow-hidden">
+                  <div className="w-12 h-12 rounded-sm bg-[#F8F5F2]/5 flex items-center justify-center overflow-hidden">
                     {category.image ? (
-                      <div className="w-full h-full bg-gradient-to-br from-[#C9A96E]/20 to-[#8B1A1A]/20 flex items-center justify-center">
-                        <ImageIcon className="w-5 h-5 text-[#C9A96E]/60" />
+                      <div className="w-full h-full bg-gradient-to-br from-[#C9A27E]/20 to-[#DC2626]/20 flex items-center justify-center">
+                        <ImageIcon className="w-5 h-5 text-[#C9A27E]/60" />
                       </div>
                     ) : (
-                      <ImageIcon className="w-5 h-5 text-[#F5F0EB]/30" />
+                      <ImageIcon className="w-5 h-5 text-[#F8F5F2]/30" />
                     )}
                   </div>
                   <div>
-                    <h3 className="font-medium text-[#F5F0EB] text-sm">{category.name}</h3>
-                    <p className="text-xs text-[#F5F0EB]/40 mt-0.5">
+                    <h3 className="font-medium text-[#F8F5F2] text-sm">{category.name}</h3>
+                    <p className="text-xs text-[#F8F5F2]/40 mt-0.5">
                       {category.productCount} products
                     </p>
                   </div>
@@ -605,25 +375,25 @@ export default function CategoriesPage() {
                     onCheckedChange={(checked) =>
                       toggleMutation.mutate({ id: category.id, isActive: checked })
                     }
-                    className="data-[state=checked]:bg-[#C9A96E]"
+                    className="data-[state=checked]:bg-[#C9A27E]"
                   />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="w-8 h-8 text-[#F5F0EB]/50 hover:text-[#C9A96E]"
+                        className="w-8 h-8 text-[#F8F5F2]/50 hover:text-[#C9A27E]"
                       >
                         <MoreHorizontal className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align="end"
-                      className="bg-[#2A2A2A] border-[#F5F0EB]/10"
+                      className="bg-[#2A2A2A] border-[#F8F5F2]/10"
                     >
                       <DropdownMenuItem
                         onClick={() => handleEdit(category)}
-                        className="text-[#F5F0EB] hover:bg-[#F5F0EB]/5 focus:bg-[#F5F0EB]/5"
+                        className="text-[#F8F5F2] hover:bg-[#F8F5F2]/5 focus:bg-[#F8F5F2]/5"
                       >
                         <Pencil className="w-4 h-4 mr-2" />
                         Edit
@@ -632,14 +402,14 @@ export default function CategoriesPage() {
                         <>
                           <DropdownMenuItem
                             onClick={() => moveCategory(category.id, "up")}
-                            className="text-[#F5F0EB] hover:bg-[#F5F0EB]/5 focus:bg-[#F5F0EB]/5"
+                            className="text-[#F8F5F2] hover:bg-[#F8F5F2]/5 focus:bg-[#F8F5F2]/5"
                           >
                             <ArrowUp className="w-4 h-4 mr-2" />
                             Move Up
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => moveCategory(category.id, "down")}
-                            className="text-[#F5F0EB] hover:bg-[#F5F0EB]/5 focus:bg-[#F5F0EB]/5"
+                            className="text-[#F8F5F2] hover:bg-[#F8F5F2]/5 focus:bg-[#F8F5F2]/5"
                           >
                             <ArrowDown className="w-4 h-4 mr-2" />
                             Move Down
@@ -661,7 +431,7 @@ export default function CategoriesPage() {
                 </div>
               </div>
               {!isChild && category.children && (
-                <div className="flex items-center gap-4 text-xs text-[#F5F0EB]/40 mt-2 pt-2 border-t border-[#F5F0EB]/5">
+                <div className="flex items-center gap-4 text-xs text-[#F8F5F2]/40 mt-2 pt-2 border-t border-[#F8F5F2]/5">
                   <span>{category.subcategoryCount} subcategories</span>
                   <span>{category.productCount} products</span>
                 </div>
@@ -672,7 +442,7 @@ export default function CategoriesPage() {
               {hasChildren && !isChild && (
                 <button
                   onClick={() => toggleExpand(category.id)}
-                  className="text-[#F5F0EB]/50 hover:text-[#C9A96E] transition-colors"
+                  className="text-[#F8F5F2]/50 hover:text-[#C9A27E] transition-colors"
                 >
                   {isExpanded ? (
                     <ChevronDown className="w-4 h-4" />
@@ -681,27 +451,27 @@ export default function CategoriesPage() {
                   )}
                 </button>
               )}
-              <div className="w-10 h-10 rounded-lg bg-[#F5F0EB]/5 flex items-center justify-center overflow-hidden flex-shrink-0">
+              <div className="w-10 h-10 rounded-sm bg-[#F8F5F2]/5 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {category.image ? (
-                  <div className="w-full h-full bg-gradient-to-br from-[#C9A96E]/20 to-[#8B1A1A]/20 flex items-center justify-center">
-                    <ImageIcon className="w-4 h-4 text-[#C9A96E]/60" />
+                  <div className="w-full h-full bg-gradient-to-br from-[#C9A27E]/20 to-[#DC2626]/20 flex items-center justify-center">
+                    <ImageIcon className="w-4 h-4 text-[#C9A27E]/60" />
                   </div>
                 ) : (
-                  <ImageIcon className="w-4 h-4 text-[#F5F0EB]/30" />
+                  <ImageIcon className="w-4 h-4 text-[#F8F5F2]/30" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-[#F5F0EB] text-sm truncate">
+                <h3 className="font-medium text-[#F8F5F2] text-sm truncate">
                   {category.name}
                 </h3>
-                <p className="text-xs text-[#F5F0EB]/40 truncate">
+                <p className="text-xs text-[#F8F5F2]/40 truncate">
                   {category.description || "No description"}
                 </p>
               </div>
-              <div className="text-xs text-[#F5F0EB]/50 w-24 text-right">
+              <div className="text-xs text-[#F8F5F2]/50 w-24 text-right">
                 {category.productCount} products
               </div>
-              <div className="text-xs text-[#F5F0EB]/50 w-28 text-right">
+              <div className="text-xs text-[#F8F5F2]/50 w-28 text-right">
                 {category.subcategoryCount} subcategories
               </div>
               <Switch
@@ -709,25 +479,25 @@ export default function CategoriesPage() {
                 onCheckedChange={(checked) =>
                   toggleMutation.mutate({ id: category.id, isActive: checked })
                 }
-                className="data-[state=checked]:bg-[#C9A96E]"
+                className="data-[state=checked]:bg-[#C9A27E]"
               />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="w-8 h-8 text-[#F5F0EB]/50 hover:text-[#C9A96E]"
+                    className="w-8 h-8 text-[#F8F5F2]/50 hover:text-[#C9A27E]"
                   >
                     <MoreHorizontal className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="end"
-                  className="bg-[#2A2A2A] border-[#F5F0EB]/10"
+                  className="bg-[#2A2A2A] border-[#F8F5F2]/10"
                 >
                   <DropdownMenuItem
                     onClick={() => handleEdit(category)}
-                    className="text-[#F5F0EB] hover:bg-[#F5F0EB]/5 focus:bg-[#F5F0EB]/5"
+                    className="text-[#F8F5F2] hover:bg-[#F8F5F2]/5 focus:bg-[#F8F5F2]/5"
                   >
                     <Pencil className="w-4 h-4 mr-2" />
                     Edit
@@ -736,14 +506,14 @@ export default function CategoriesPage() {
                     <>
                       <DropdownMenuItem
                         onClick={() => moveCategory(category.id, "up")}
-                        className="text-[#F5F0EB] hover:bg-[#F5F0EB]/5 focus:bg-[#F5F0EB]/5"
+                        className="text-[#F8F5F2] hover:bg-[#F8F5F2]/5 focus:bg-[#F8F5F2]/5"
                       >
                         <ArrowUp className="w-4 h-4 mr-2" />
                         Move Up
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => moveCategory(category.id, "down")}
-                        className="text-[#F5F0EB] hover:bg-[#F5F0EB]/5 focus:bg-[#F5F0EB]/5"
+                        className="text-[#F8F5F2] hover:bg-[#F8F5F2]/5 focus:bg-[#F8F5F2]/5"
                       >
                         <ArrowDown className="w-4 h-4 mr-2" />
                         Move Down
@@ -793,16 +563,16 @@ export default function CategoriesPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-light text-[#F5F0EB] tracking-wide">
+            <h1 className="text-2xl font-light text-[#F8F5F2] tracking-wide">
               Categories
             </h1>
-            <p className="text-sm text-[#F5F0EB]/40 mt-1">
+            <p className="text-sm text-[#F8F5F2]/40 mt-1">
               Manage your product categories and subcategories
             </p>
           </div>
           <Button
             onClick={handleCreate}
-            className="bg-[#C9A96E] hover:bg-[#C9A96E]/90 text-[#1A1A1A] font-medium px-5 py-2.5 rounded-lg transition-all duration-300"
+            className="bg-[#C9A27E] hover:bg-[#C9A27E]/90 text-[#1A1A1A] font-medium px-5 py-2.5 rounded-sm transition-all duration-300"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Category
@@ -812,31 +582,31 @@ export default function CategoriesPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#F5F0EB]/30" />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#F8F5F2]/30" />
               <Input
                 placeholder="Search categories..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 w-64 bg-[#F5F0EB]/5 border-[#F5F0EB]/10 text-[#F5F0EB] placeholder:text-[#F5F0EB]/30 focus:border-[#C9A96E]/50"
+                className="pl-9 w-64 bg-[#F8F5F2]/5 border-[#F8F5F2]/10 text-[#F8F5F2] placeholder:text-[#F8F5F2]/30 focus:border-[#C9A27E]/50"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#F5F0EB]/30 hover:text-[#F5F0EB]/60"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#F8F5F2]/30 hover:text-[#F8F5F2]/60"
                 >
                   <X className="w-3 h-3" />
                 </button>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-[#F5F0EB]/5 rounded-lg p-1">
+          <div className="flex items-center gap-2 bg-[#F8F5F2]/5 rounded-sm p-1">
             <button
               onClick={() => setViewMode("grid")}
               className={cn(
-                "p-2 rounded-md transition-all duration-200",
+                "p-2 rounded-sm transition-all duration-200",
                 viewMode === "grid"
-                  ? "bg-[#C9A96E]/20 text-[#C9A96E]"
-                  : "text-[#F5F0EB]/40 hover:text-[#F5F0EB]/60"
+                  ? "bg-[#C9A27E]/20 text-[#C9A27E]"
+                  : "text-[#F8F5F2]/40 hover:text-[#F8F5F2]/60"
               )}
             >
               <Grid3X3 className="w-4 h-4" />
@@ -844,10 +614,10 @@ export default function CategoriesPage() {
             <button
               onClick={() => setViewMode("list")}
               className={cn(
-                "p-2 rounded-md transition-all duration-200",
+                "p-2 rounded-sm transition-all duration-200",
                 viewMode === "list"
-                  ? "bg-[#C9A96E]/20 text-[#C9A96E]"
-                  : "text-[#F5F0EB]/40 hover:text-[#F5F0EB]/60"
+                  ? "bg-[#C9A27E]/20 text-[#C9A27E]"
+                  : "text-[#F8F5F2]/40 hover:text-[#F8F5F2]/60"
               )}
             >
               <List className="w-4 h-4" />
@@ -860,20 +630,72 @@ export default function CategoriesPage() {
             {[...Array(5)].map((_, i) => (
               <div
                 key={i}
-                className="h-20 rounded-lg bg-[#F5F0EB]/5 animate-pulse"
+                className="h-20 rounded-sm bg-[#F8F5F2]/5 animate-pulse"
               />
             ))}
           </div>
+        ) : isError ? (
+          <div className="border border-[#F8F5F2]/10 bg-[#242424] rounded-sm p-8 text-center my-6">
+            <div className="w-16 h-16 rounded-full bg-[#C9A27E]/10 border border-[#C9A27E]/20 flex items-center justify-center mx-auto mb-4 text-[#C9A27E]">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-light text-[#F8F5F2] tracking-wide">
+              Category Service Offline
+            </h3>
+            <div className="mt-2 h-px w-12 bg-[#C9A27E] mx-auto" />
+            <p className="mt-3 text-sm text-[#F8F5F2]/60 max-w-md mx-auto leading-relaxed">
+              Unable to reach the backend database. Please ensure your backend server is running and configured correctly.
+            </p>
+            <div className="mt-6 flex items-center justify-center gap-3">
+              <Button
+                variant="ghost"
+                onClick={() => refetch()}
+                className="text-[#C9A27E] border border-[#C9A27E]/40 hover:bg-[#C9A27E]/10 px-5"
+              >
+                Retry Connection
+              </Button>
+              <Button
+                onClick={handleCreate}
+                className="bg-[#C9A27E] hover:bg-[#C9A27E]/90 text-[#1A1A1A] font-medium px-5"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Category
+              </Button>
+            </div>
+          </div>
         ) : filteredCategories.length === 0 ? (
-          <EmptyState
-            title="No categories found"
-            description="Create your first category to get started."
-          />
+          <div className="border border-[#F8F5F2]/10 bg-[#242424]/60 rounded-sm my-6">
+            <EmptyState
+              dark={true}
+              icon={<Layers className="w-10 h-10 text-[#C9A27E]" />}
+              title={
+                searchQuery
+                  ? "No Matching Categories Found"
+                  : "No Product Categories Yet"
+              }
+              description={
+                searchQuery
+                  ? `We couldn't find any category matching "${searchQuery}". Try refining your keywords.`
+                  : "Organize your boutique collections by creating your first luxury product category."
+              }
+              action={
+                searchQuery
+                  ? {
+                      label: "Clear Search Filter",
+                      onClick: () => setSearchQuery(""),
+                    }
+                  : {
+                      label: "+ Add Your First Category",
+                      onClick: handleCreate,
+                    }
+              }
+            />
+          </div>
         ) : (
           <div className="space-y-1">
             <AnimatePresence mode="popLayout">
               {viewMode === "list" && (
-                <div className="flex items-center gap-4 px-4 py-2 text-xs text-[#F5F0EB]/30 border-b border-[#F5F0EB]/10">
+                <div className="flex items-center gap-4 px-4 py-2 text-xs text-[#F8F5F2]/30 border-b border-[#F8F5F2]/10">
                   <div className="w-10" />
                   <div className="w-10" />
                   <div className="flex-1">Category</div>
@@ -892,20 +714,20 @@ export default function CategoriesPage() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="bg-[#2A2A2A] border-[#F5F0EB]/10 max-w-lg">
+        <DialogContent className="bg-[#2A2A2A] border-[#F8F5F2]/10 max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-[#F5F0EB] font-light tracking-wide">
+            <DialogTitle className="text-[#F8F5F2] font-light tracking-wide">
               {editingCategory ? "Edit Category" : "Create Category"}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)}>
             <div className="max-h-[60vh] overflow-y-auto pr-1.5 space-y-5 pb-4">
               <div className="space-y-2">
-                <label className="text-sm text-[#F5F0EB]/60">Name</label>
+                <label className="text-sm text-[#F8F5F2]/60">Name</label>
                 <Input
                   {...register("name")}
                   placeholder="Category name"
-                  className="bg-[#F5F0EB]/5 border-[#F5F0EB]/10 text-[#F5F0EB] placeholder:text-[#F5F0EB]/30 focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E] transition-all duration-200"
+                  className="bg-[#F8F5F2]/5 border-[#F8F5F2]/10 text-[#F8F5F2] placeholder:text-[#F8F5F2]/30 focus:outline-none focus:ring-2 focus:ring-[#C9A27E]/30 focus:border-[#C9A27E] transition-all duration-200"
                 />
                 {errors.name && (
                   <p className="text-xs text-red-400">{errors.name.message}</p>
@@ -913,89 +735,149 @@ export default function CategoriesPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm text-[#F5F0EB]/60">Description</label>
+                <label className="text-sm text-[#F8F5F2]/60">Description</label>
                 <Textarea
                   {...register("description")}
                   placeholder="Category description"
                   rows={3}
-                  className="bg-[#F5F0EB]/5 border-[#F5F0EB]/10 text-[#F5F0EB] placeholder:text-[#F5F0EB]/30 focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E] transition-all duration-200 resize-none"
+                  className="bg-[#F8F5F2]/5 border-[#F8F5F2]/10 text-[#F8F5F2] placeholder:text-[#F8F5F2]/30 focus:outline-none focus:ring-2 focus:ring-[#C9A27E]/30 focus:border-[#C9A27E] transition-all duration-200 resize-none"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm text-[#F5F0EB]/60">Parent Category</label>
+                <label className="text-sm text-[#F8F5F2]/60">Parent Category</label>
                 <div className="relative">
                   <select
                     value={watch("parentId")}
                     onChange={(e) => setValue("parentId", e.target.value)}
-                    className="flex h-10 w-full appearance-none rounded-lg border border-[#F5F0EB]/10 bg-[#F5F0EB]/5 px-3 py-2 pr-10 text-sm text-[#F5F0EB] transition-colors focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E]"
+                    className="flex h-10 w-full appearance-none rounded-sm border border-[#F8F5F2]/10 bg-[#F8F5F2]/5 px-3 py-2 pr-10 text-sm text-[#F8F5F2] transition-colors focus:outline-none focus:ring-2 focus:ring-[#C9A27E]/30 focus:border-[#C9A27E]"
                   >
-                    <option value="" className="bg-[#2A2A2A] text-[#F5F0EB]">
+                    <option value="" className="bg-[#2A2A2A] text-[#F8F5F2]">
                       None (Top level)
                     </option>
                     {parentCategories.map((cat) => (
                       <option
                         key={cat.id}
                         value={cat.id}
-                        className="bg-[#2A2A2A] text-[#F5F0EB]"
+                        className="bg-[#2A2A2A] text-[#F8F5F2]"
                       >
                         {cat.name}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F0EB]/40 pointer-events-none" />
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F8F5F2]/40 pointer-events-none" />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm text-[#F5F0EB]/60">Image</label>
-                <div className="border-2 border-dashed border-[#F5F0EB]/10 rounded-lg p-6 text-center hover:border-[#C9A96E]/30 transition-colors cursor-pointer">
-                  <Upload className="w-8 h-8 mx-auto text-[#F5F0EB]/20 mb-2" />
-                  <p className="text-sm text-[#F5F0EB]/40">
-                    Click to upload or drag and drop
-                  </p>
-                  <p className="text-xs text-[#F5F0EB]/20 mt-1">
-                    PNG, JPG up to 5MB
-                  </p>
-                </div>
+                <label className="text-sm text-[#F8F5F2]/60">Image</label>
+
+                {/* Hidden native file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={handleFileInputChange}
+                />
+
+                {imagePreview ? (
+                  /* ── Preview state ── */
+                  <div className="relative rounded-sm overflow-hidden border border-[#F8F5F2]/10 group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imagePreview}
+                      alt="Category preview"
+                      className="w-full h-40 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-white text-xs bg-[#C9A27E] hover:bg-[#C9A27E]/80 px-3 py-1.5 rounded-sm transition-colors"
+                      >
+                        Change
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearImage}
+                        className="text-white text-xs bg-red-500/70 hover:bg-red-500 px-3 py-1.5 rounded-sm transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    {imageFile && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-3 py-1.5">
+                        <p className="text-xs text-[#F8F5F2]/70 truncate">{imageFile.name}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* ── Drop zone ── */
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Click to upload category image"
+                    onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={cn(
+                      "border-2 border-dashed rounded-sm p-6 text-center transition-all duration-200 cursor-pointer select-none",
+                      isDragging
+                        ? "border-[#C9A27E] bg-[#C9A27E]/5"
+                        : "border-[#F8F5F2]/10 hover:border-[#C9A27E]/40 hover:bg-[#F8F5F2]/3"
+                    )}
+                  >
+                    <Upload className={cn(
+                      "w-8 h-8 mx-auto mb-2 transition-colors",
+                      isDragging ? "text-[#C9A27E]" : "text-[#F8F5F2]/20"
+                    )} />
+                    <p className="text-sm text-[#F8F5F2]/40">
+                      {isDragging ? "Drop image here" : "Click to upload or drag and drop"}
+                    </p>
+                    <p className="text-xs text-[#F8F5F2]/20 mt-1">PNG, JPG, WebP up to 10MB</p>
+                  </div>
+                )}
               </div>
 
-              <div className="space-y-4 pt-2 border-t border-[#F5F0EB]/10">
-                <p className="text-xs text-[#F5F0EB]/30 uppercase tracking-wider">
+              <div className="space-y-4 pt-2 border-t border-[#F8F5F2]/10">
+                <p className="text-xs text-[#F8F5F2]/30 uppercase tracking-wider">
                   SEO Settings
                 </p>
                 <div className="space-y-2">
-                  <label className="text-sm text-[#F5F0EB]/60">SEO Title</label>
+                  <label className="text-sm text-[#F8F5F2]/60">SEO Title</label>
                   <Input
                     {...register("seoTitle")}
                     placeholder="SEO title"
-                    className="bg-[#F5F0EB]/5 border-[#F5F0EB]/10 text-[#F5F0EB] placeholder:text-[#F5F0EB]/30 focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E] transition-all duration-200"
+                    className="bg-[#F8F5F2]/5 border-[#F8F5F2]/10 text-[#F8F5F2] placeholder:text-[#F8F5F2]/30 focus:outline-none focus:ring-2 focus:ring-[#C9A27E]/30 focus:border-[#C9A27E] transition-all duration-200"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm text-[#F5F0EB]/60">
+                  <label className="text-sm text-[#F8F5F2]/60">
                     SEO Description
                   </label>
                   <Textarea
                     {...register("seoDescription")}
                     placeholder="SEO description"
                     rows={2}
-                    className="bg-[#F5F0EB]/5 border-[#F5F0EB]/10 text-[#F5F0EB] placeholder:text-[#F5F0EB]/30 focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/30 focus:border-[#C9A96E] transition-all duration-200 resize-none"
+                    className="bg-[#F8F5F2]/5 border-[#F8F5F2]/10 text-[#F8F5F2] placeholder:text-[#F8F5F2]/30 focus:outline-none focus:ring-2 focus:ring-[#C9A27E]/30 focus:border-[#C9A27E] transition-all duration-200 resize-none"
                   />
                 </div>
               </div>
 
               <div className="flex items-center justify-between pt-2">
-                <label className="text-sm text-[#F5F0EB]/60">Active</label>
+                <label className="text-sm text-[#F8F5F2]/60">Active</label>
                 <Switch
                   checked={watch("isActive")}
                   onCheckedChange={(checked) => setValue("isActive", checked)}
-                  className="data-[state=checked]:bg-[#C9A96E]"
+                  className="data-[state=checked]:bg-[#C9A27E]"
                 />
               </div>
             </div>
 
-            <DialogFooter className="pt-4 border-t border-[#F5F0EB]/10">
+            <DialogFooter className="pt-4 border-t border-[#F8F5F2]/10">
               <Button
                 type="button"
                 variant="ghost"
@@ -1003,15 +885,16 @@ export default function CategoriesPage() {
                   setIsDialogOpen(false)
                   setEditingCategory(null)
                   reset()
+                  clearImage()
                 }}
-                className="text-[#F5F0EB]/60 hover:text-[#F5F0EB] hover:bg-[#F5F0EB]/5"
+                className="text-[#F8F5F2]/60 hover:text-[#F8F5F2] hover:bg-[#F8F5F2]/5"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={createMutation.isPending || updateMutation.isPending}
-                className="bg-[#C9A96E] hover:bg-[#C9A96E]/90 text-[#1A1A1A] font-medium px-6"
+                className="bg-[#C9A27E] hover:bg-[#C9A27E]/90 text-[#1A1A1A] font-medium px-6"
               >
                 {createMutation.isPending || updateMutation.isPending
                   ? "Saving..."
@@ -1025,16 +908,16 @@ export default function CategoriesPage() {
       </Dialog>
 
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="bg-[#2A2A2A] border-[#F5F0EB]/10 max-w-md">
+        <DialogContent className="bg-[#2A2A2A] border-[#F8F5F2]/10 max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-[#F5F0EB] font-light tracking-wide">
+            <DialogTitle className="text-[#F8F5F2] font-light tracking-wide">
               Delete Category
             </DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <p className="text-sm text-[#F5F0EB]/60">
+            <p className="text-sm text-[#F8F5F2]/60">
               Are you sure you want to delete{" "}
-              <span className="text-[#F5F0EB] font-medium">
+              <span className="text-[#F8F5F2] font-medium">
                 {deletingCategory?.name}
               </span>
               ? This action cannot be undone.
@@ -1053,7 +936,7 @@ export default function CategoriesPage() {
                 setIsDeleteDialogOpen(false)
                 setDeletingCategory(null)
               }}
-              className="text-[#F5F0EB]/60 hover:text-[#F5F0EB] hover:bg-[#F5F0EB]/5"
+              className="text-[#F8F5F2]/60 hover:text-[#F8F5F2] hover:bg-[#F8F5F2]/5"
             >
               Cancel
             </Button>

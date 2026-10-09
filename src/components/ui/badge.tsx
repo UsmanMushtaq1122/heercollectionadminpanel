@@ -4,12 +4,13 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = {
-  default:
-    "bg-[#C9A96E]/15 text-[#7A6543] border border-[#C9A96E]/20",
-  secondary: "bg-gray-100 text-gray-600 border border-gray-200",
-  destructive:
-    "bg-red-50 text-red-600 border border-red-200",
-  outline: "bg-transparent text-[#1A1A1A] border border-gray-300",
+  default: "bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80",
+  secondary: "bg-[#E8DDD4] text-[#1A1A1A] hover:bg-[#E8DDD4]/80",
+  destructive: "bg-red-500 text-white hover:bg-red-600",
+  outline: "border-[#1A1A1A]/20 text-[#1A1A1A]",
+  gold: "bg-[#C9A27E] text-white hover:bg-[#C9A27E]/80",
+  new: "bg-emerald-500 text-white hover:bg-emerald-600",
+  sale: "bg-red-500 text-white hover:bg-red-600",
 };
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
@@ -21,7 +22,7 @@ const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
     <span
       ref={ref}
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
+        "inline-flex items-center rounded-sm border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-[#C9A27E]/50 focus:ring-offset-2",
         badgeVariants[variant],
         className
       )}

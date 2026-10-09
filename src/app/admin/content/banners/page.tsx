@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -9,37 +10,35 @@ import {
   ChevronUp,
   ChevronDown,
   Image,
-  Eye,
-  EyeOff,
   GripVertical,
-  X,
   Link as LinkIcon,
-  Type,
-  AlignLeft,
-  Palette,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { Banner as BannerDTO } from "@/types";
+import { adminBannerService } from "@/lib/admin-services";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/api";
 
 interface HeroBanner {
   id: string;
   title: string;
   subtitle: string;
   imageUrl: string;
+  mobileImageUrl: string;
   link: string;
   buttonText: string;
   active: boolean;
@@ -51,6 +50,7 @@ interface EditorialBanner {
   title: string;
   subtitle: string;
   imageUrl: string;
+  mobileImageUrl: string;
   link: string;
   active: boolean;
   order: number;
@@ -65,138 +65,91 @@ interface AnnouncementBar {
   textColor: string;
 }
 
-const mockHeroBanners: HeroBanner[] = [
-  {
-    id: "hb1",
-    title: "Eid Ul Adha Collection",
-    subtitle: "Luxurious pieces crafted for the celebration",
-    imageUrl: "/banners/eid-collection.jpg",
-    link: "/collections/eid",
-    buttonText: "Shop Now",
-    active: true,
-    order: 0,
-  },
-  {
-    id: "hb2",
-    title: "Summer Solstice",
-    subtitle: "Light fabrics, bold statements for the modern woman",
-    imageUrl: "/banners/summer.jpg",
-    link: "/collections/summer",
-    buttonText: "Explore",
-    active: true,
-    order: 1,
-  },
-  {
-    id: "hb3",
-    title: "Bridal Couture 2026",
-    subtitle: "Where tradition meets contemporary elegance",
-    imageUrl: "/banners/bridal.jpg",
-    link: "/collections/bridal",
-    buttonText: "View Collection",
-    active: false,
-    order: 2,
-  },
-  {
-    id: "hb4",
-    title: "The Monsoon Edit",
-    subtitle: "Rainy day essentials in rich jewel tones",
-    imageUrl: "/banners/monsoon.jpg",
-    link: "/collections/monsoon",
-    buttonText: "Discover",
-    active: true,
-    order: 3,
-  },
-];
-
-const mockEditorialBanners: EditorialBanner[] = [
-  {
-    id: "eb1",
-    title: "Behind the Seams",
-    subtitle: "Meet our master artisans who bring each piece to life",
-    imageUrl: "/editorial/artisans.jpg",
-    link: "/editorial/artisans",
-    active: true,
-    order: 0,
-  },
-  {
-    id: "eb2",
-    title: "The Art of Hand Embroidery",
-    subtitle: "A centuries-old craft preserved in modern luxury",
-    imageUrl: "/editorial/embroidery.jpg",
-    link: "/editorial/embroidery",
-    active: true,
-    order: 1,
-  },
-  {
-    id: "eb3",
-    title: "Sustainability Report",
-    subtitle: "Our commitment to ethical fashion practices",
-    imageUrl: "/editorial/sustainability.jpg",
-    link: "/editorial/sustainability",
-    active: false,
-    order: 2,
-  },
-];
-
-const mockAnnouncements: AnnouncementBar[] = [
-  {
-    id: "ab1",
-    text: "Free delivery on orders above PKR 25,000",
-    link: "/shipping-info",
-    active: true,
-    bgColor: "#1A1A1A",
-    textColor: "#F5F0EB",
-  },
-  {
-    id: "ab2",
-    text: "Eid Sale — Up to 30% off select styles | Use code EID30",
-    link: "/sale",
-    active: true,
-    bgColor: "#8B1A1A",
-    textColor: "#F5F0EB",
-  },
-  {
-    id: "ab3",
-    text: "New arrivals just dropped — Explore the Summer 2026 collection",
-    link: "/collections/summer",
-    active: false,
-    bgColor: "#C9A96E",
-    textColor: "#1A1A1A",
-  },
-];
+function mapHeroBanner(b: BannerDTO): HeroBanner {
+  return { id: b.id, title: b.title, subtitle: b.subtitle || "", imageUrl: b.image, mobileImageUrl: b.mobileImage || "", link: b.link || "", buttonText: b.buttonText || "", active: b.isActive, order: b.sortOrder };
+}
+function mapEditorialBanner(b: BannerDTO): EditorialBanner {
+  return { id: b.id, title: b.title, subtitle: b.subtitle || "", imageUrl: b.image, mobileImageUrl: b.mobileImage || "", link: b.link || "", active: b.isActive, order: b.sortOrder };
+}
+function mapAnnouncement(b: BannerDTO): AnnouncementBar {
+  return { id: b.id, text: b.title, link: b.link || "", active: b.isActive, bgColor: "#1A1A1A", textColor: "#F8F5F2" };
+}
 
 export default function BannersPage() {
-  const [heroBanners, setHeroBanners] = useState(mockHeroBanners);
-  const [editorialBanners, setEditorialBanners] = useState(mockEditorialBanners);
-  const [announcements, setAnnouncements] = useState(mockAnnouncements);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: allBanners = [] } = useQuery({
+    queryKey: ["banners"],
+    queryFn: () => adminBannerService.list(),
+  });
+  const heroBanners = allBanners.filter((b) => b.type === "hero").map(mapHeroBanner);
+  const editorialBanners = allBanners.filter((b) => b.type === "editorial").map(mapEditorialBanner);
+  const announcements = allBanners.filter((b) => b.type === "announcement").map(mapAnnouncement);
+  const createMutation = useMutation<unknown, unknown, Partial<BannerDTO> | FormData>({
+    mutationFn: (data) => (data instanceof FormData ? adminBannerService.createUpload(data) : adminBannerService.create(data)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["banners"] });
+      toast("success", "Banner created successfully");
+    },
+    onError: (error: unknown) => toast("error", getErrorMessage(error)),
+  });
+  const updateMutation = useMutation<unknown, unknown, { id: string; data: Partial<BannerDTO> | FormData }>({
+    mutationFn: ({ id, data }) => (data instanceof FormData ? adminBannerService.updateUpload(id, data) : adminBannerService.update(id, data)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["banners"] }),
+    onError: (error: unknown) => toast("error", getErrorMessage(error)),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => adminBannerService.remove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["banners"] });
+      toast("success", "Banner deleted successfully");
+    },
+    onError: (error: unknown) => toast("error", getErrorMessage(error)),
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState<any>(null);
   const [dialogType, setDialogType] = useState<"hero" | "editorial" | "announcement">("hero");
+  // Desktop image
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  // Mobile image
+  const [mobileImageFile, setMobileImageFile] = useState<File | null>(null);
+  const [mobileImagePreview, setMobileImagePreview] = useState("");
+  const [isDraggingMobile, setIsDraggingMobile] = useState(false);
+  const mobileImageInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     title: "",
     subtitle: "",
     imageUrl: "",
+    mobileImageUrl: "",
     link: "",
     buttonText: "",
     active: true,
     text: "",
     bgColor: "#1A1A1A",
-    textColor: "#F5F0EB",
+    textColor: "#F8F5F2",
   });
 
   const openAdd = (type: typeof dialogType) => {
     setEditingBanner(null);
     setDialogType(type);
+    setImageFile(null);
+    setImagePreview("");
+    setMobileImageFile(null);
+    setMobileImagePreview("");
     setForm({
       title: "",
       subtitle: "",
       imageUrl: "",
+      mobileImageUrl: "",
       link: "",
       buttonText: "",
       active: true,
       text: "",
       bgColor: "#1A1A1A",
-      textColor: "#F5F0EB",
+      textColor: "#F8F5F2",
     });
     setDialogOpen(true);
   };
@@ -204,6 +157,10 @@ export default function BannersPage() {
   const openEdit = (banner: any, type: typeof dialogType) => {
     setEditingBanner(banner);
     setDialogType(type);
+    setImageFile(null);
+    setMobileImageFile(null);
+    setImagePreview(type === "announcement" ? "" : banner.imageUrl || "");
+    setMobileImagePreview(type === "announcement" ? "" : banner.mobileImageUrl || "");
     if (type === "announcement") {
       setForm({
         ...form,
@@ -219,6 +176,7 @@ export default function BannersPage() {
         title: banner.title,
         subtitle: banner.subtitle || "",
         imageUrl: banner.imageUrl,
+        mobileImageUrl: banner.mobileImageUrl || "",
         link: banner.link,
         buttonText: banner.buttonText || "",
         active: banner.active,
@@ -228,79 +186,92 @@ export default function BannersPage() {
   };
 
   const handleSave = () => {
-    if (dialogType === "hero") {
-      if (editingBanner) {
-        setHeroBanners((prev) =>
-          prev.map((b) =>
-            b.id === editingBanner.id ? { ...b, ...form } : b
-          )
-        );
-      } else {
-        setHeroBanners((prev) => [
-          ...prev,
-          {
-            id: `hb${Date.now()}`,
-            ...form,
-            order: prev.length,
-          },
-        ]);
+    if (dialogType === "hero" || dialogType === "editorial") {
+      const bannerData: Partial<BannerDTO> = {
+        title: form.title.trim(),
+        subtitle: form.subtitle.trim() || undefined,
+        image: form.imageUrl.trim() || undefined,
+        mobileImage: form.mobileImageUrl.trim() || undefined,
+        link: form.link.trim() || undefined,
+        buttonText: dialogType === "hero" ? (form.buttonText.trim() || undefined) : undefined,
+        type: dialogType,
+        isActive: form.active,
+        sortOrder: editingBanner ? editingBanner.order : (dialogType === "hero" ? heroBanners.length : editorialBanners.length),
+      };
+
+      let payload: Partial<BannerDTO> | FormData = bannerData;
+      if (imageFile || mobileImageFile) {
+        const uploadPayload = new FormData();
+        uploadPayload.append("title", bannerData.title || "");
+        uploadPayload.append("subtitle", bannerData.subtitle || "");
+        uploadPayload.append("link", bannerData.link || "");
+        uploadPayload.append("type", dialogType);
+        uploadPayload.append("isActive", String(form.active));
+        uploadPayload.append("sortOrder", String(bannerData.sortOrder ?? 0));
+        if (dialogType === "hero") uploadPayload.append("buttonText", bannerData.buttonText || "");
+        if (imageFile) uploadPayload.append("image", imageFile);
+        else if (bannerData.image) uploadPayload.append("imageUrl", bannerData.image);
+        if (mobileImageFile) uploadPayload.append("mobileImage", mobileImageFile);
+        else if (bannerData.mobileImage) uploadPayload.append("mobileImageUrl", bannerData.mobileImage);
+        payload = uploadPayload;
       }
-    } else if (dialogType === "editorial") {
       if (editingBanner) {
-        setEditorialBanners((prev) =>
-          prev.map((b) =>
-            b.id === editingBanner.id ? { ...b, ...form } : b
-          )
-        );
+        updateMutation.mutate({ id: editingBanner.id, data: payload }, { onSuccess: () => toast("success", "Banner updated successfully") });
       } else {
-        setEditorialBanners((prev) => [
-          ...prev,
-          {
-            id: `eb${Date.now()}`,
-            ...form,
-            order: prev.length,
-          },
-        ]);
+        createMutation.mutate(payload);
       }
     } else {
+      const payload: Partial<BannerDTO> = {
+        title: form.text,
+        link: form.link || undefined,
+        type: "announcement",
+        isActive: form.active,
+        sortOrder: editingBanner ? 0 : announcements.length,
+      };
       if (editingBanner) {
-        setAnnouncements((prev) =>
-          prev.map((b) =>
-            b.id === editingBanner.id
-              ? { ...b, text: form.text, link: form.link, active: form.active, bgColor: form.bgColor, textColor: form.textColor }
-              : b
-          )
-        );
+        updateMutation.mutate({ id: editingBanner.id, data: payload }, { onSuccess: () => toast("success", "Banner updated successfully") });
       } else {
-        setAnnouncements((prev) => [
-          ...prev,
-          {
-            id: `ab${Date.now()}`,
-            text: form.text,
-            link: form.link,
-            active: form.active,
-            bgColor: form.bgColor,
-            textColor: form.textColor,
-          },
-        ]);
+        createMutation.mutate(payload);
       }
     }
     setDialogOpen(false);
   };
 
+  const selectImage = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast("error", "Please choose an image file");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast("error", "Image must be 10MB or smaller");
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    setForm((current) => ({ ...current, imageUrl: "" }));
+  };
+
+  const selectMobileImage = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast("error", "Please choose an image file");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast("error", "Image must be 10MB or smaller");
+      return;
+    }
+    setMobileImageFile(file);
+    setMobileImagePreview(URL.createObjectURL(file));
+    setForm((current) => ({ ...current, mobileImageUrl: "" }));
+  };
+
   const toggleActive = (id: string, type: "hero" | "editorial" | "announcement") => {
-    if (type === "hero") {
-      setHeroBanners((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, active: !b.active } : b))
-      );
-    } else if (type === "editorial") {
-      setEditorialBanners((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, active: !b.active } : b))
-      );
-    } else {
-      setAnnouncements((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, active: !b.active } : b))
-      );
+    const all = [...heroBanners, ...editorialBanners, ...announcements];
+    const item = all.find((b) => b.id === id);
+    if (item) {
+      updateMutation.mutate({ id, data: { isActive: !item.active } });
     }
   };
 
@@ -314,21 +285,19 @@ export default function BannersPage() {
     if (idx === -1) return;
     const newIdx = direction === "up" ? idx - 1 : idx + 1;
     if (newIdx < 0 || newIdx >= list.length) return;
-    const newList = [...list];
-    [newList[idx], newList[newIdx]] = [newList[newIdx], newList[idx]];
-    if (type === "hero") setHeroBanners(newList as HeroBanner[]);
-    else setEditorialBanners(newList as EditorialBanner[]);
+    const current = list[idx];
+    const target = list[newIdx];
+    updateMutation.mutate({ id: current.id, data: { sortOrder: target.order } });
+    updateMutation.mutate({ id: target.id, data: { sortOrder: current.order } });
   };
 
   const deleteItem = (id: string, type: "hero" | "editorial" | "announcement") => {
-    if (type === "hero") setHeroBanners((prev) => prev.filter((b) => b.id !== id));
-    else if (type === "editorial") setEditorialBanners((prev) => prev.filter((b) => b.id !== id));
-    else setAnnouncements((prev) => prev.filter((b) => b.id !== id));
+    deleteMutation.mutate(id);
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F0EB]">
-      <div className="p-8 max-w-[1400px] mx-auto">
+    <div className="min-h-screen bg-[#F8F5F2]">
+      <div className="mx-auto w-full max-w-[1400px] min-w-0 p-4 sm:p-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -338,7 +307,7 @@ export default function BannersPage() {
           </div>
 
           <Tabs defaultValue="hero" className="space-y-6">
-            <TabsList className="bg-white border border-stone-100 p-1">
+            <TabsList className="bg-white border border-[#1A1A1A]/10 p-1">
               <TabsTrigger value="hero" className="font-light text-sm tracking-wide data-[state=active]:bg-[#1A1A1A] data-[state=active]:text-white">
                 Hero Banners
               </TabsTrigger>
@@ -372,9 +341,9 @@ export default function BannersPage() {
                   >
                     <Card className="bg-white border-0 shadow-sm overflow-hidden">
                       <CardContent className="p-0">
-                        <div className="flex">
-                          <div className="w-64 h-40 bg-[#F5F0EB] flex items-center justify-center shrink-0 overflow-hidden">
-                            <div className="w-full h-full bg-gradient-to-br from-[#1A1A1A]/10 to-[#C9A96E]/10 flex items-center justify-center">
+                        <div className="flex min-w-0 flex-col sm:flex-row">
+                          <div className="h-40 w-full shrink-0 overflow-hidden bg-[#F8F5F2] sm:w-64">
+                            <div className="w-full h-full bg-gradient-to-br from-[#1A1A1A]/10 to-[#C9A27E]/10 flex items-center justify-center">
                               <Image className="w-10 h-10 text-[#1A1A1A]/20" />
                             </div>
                           </div>
@@ -383,13 +352,13 @@ export default function BannersPage() {
                               <div className="flex items-center gap-2 mb-1">
                                 <h3 className="font-medium text-[#1A1A1A]">{banner.title}</h3>
                                 {!banner.active && (
-                                  <Badge className="text-[9px] uppercase tracking-wider bg-stone-100 text-stone-400 border-0">
+                                  <Badge className="text-[9px] uppercase tracking-wider bg-[#E8DDD4]/40 text-[#1A1A1A]/40 border-0">
                                     Draft
                                   </Badge>
                                 )}
                               </div>
                               <p className="text-sm text-[#1A1A1A]/50 font-light">{banner.subtitle}</p>
-                              <p className="text-xs text-[#7A6543] mt-1 font-light flex items-center gap-1">
+                              <p className="text-xs text-[#B8906A] mt-1 font-light flex items-center gap-1">
                                 <LinkIcon className="w-3 h-3" />
                                 {banner.link}
                               </p>
@@ -435,7 +404,7 @@ export default function BannersPage() {
                                   className="h-8 w-8 p-0"
                                   onClick={() => deleteItem(banner.id, "hero")}
                                 >
-                                  <Trash2 className="w-4 h-4 text-[#8B1A1A]/40 hover:text-[#8B1A1A]" />
+                                  <Trash2 className="w-4 h-4 text-[#DC2626]/40 hover:text-[#DC2626]" />
                                 </Button>
                               </div>
                             </div>
@@ -471,8 +440,8 @@ export default function BannersPage() {
                     <Card className="bg-white border-0 shadow-sm overflow-hidden">
                       <CardContent className="p-0">
                         <div className="flex">
-                          <div className="w-80 h-48 bg-[#F5F0EB] flex items-center justify-center shrink-0 overflow-hidden">
-                            <div className="w-full h-full bg-gradient-to-br from-[#8B1A1A]/10 to-[#C9A96E]/10 flex items-center justify-center">
+                          <div className="w-80 h-48 bg-[#F8F5F2] flex items-center justify-center shrink-0 overflow-hidden">
+                            <div className="w-full h-full bg-gradient-to-br from-[#DC2626]/10 to-[#C9A27E]/10 flex items-center justify-center">
                               <Image className="w-12 h-12 text-[#1A1A1A]/15" />
                             </div>
                           </div>
@@ -481,13 +450,13 @@ export default function BannersPage() {
                               <div className="flex items-center gap-2 mb-1">
                                 <h3 className="font-medium text-[#1A1A1A]">{banner.title}</h3>
                                 {!banner.active && (
-                                  <Badge className="text-[9px] uppercase tracking-wider bg-stone-100 text-stone-400 border-0">
+                                  <Badge className="text-[9px] uppercase tracking-wider bg-[#E8DDD4]/40 text-[#1A1A1A]/40 border-0">
                                     Draft
                                   </Badge>
                                 )}
                               </div>
                               <p className="text-sm text-[#1A1A1A]/50 font-light">{banner.subtitle}</p>
-                              <p className="text-xs text-[#7A6543] mt-2 font-light flex items-center gap-1">
+                              <p className="text-xs text-[#B8906A] mt-2 font-light flex items-center gap-1">
                                 <LinkIcon className="w-3 h-3" />
                                 {banner.link}
                               </p>
@@ -533,7 +502,7 @@ export default function BannersPage() {
                                   className="h-8 w-8 p-0"
                                   onClick={() => deleteItem(banner.id, "editorial")}
                                 >
-                                  <Trash2 className="w-4 h-4 text-[#8B1A1A]/40 hover:text-[#8B1A1A]" />
+                                  <Trash2 className="w-4 h-4 text-[#DC2626]/40 hover:text-[#DC2626]" />
                                 </Button>
                               </div>
                             </div>
@@ -569,7 +538,7 @@ export default function BannersPage() {
                             {ann.text}
                           </div>
                           <div>
-                            <p className="text-xs text-[#7A6543] font-light flex items-center gap-1">
+                            <p className="text-xs text-[#B8906A] font-light flex items-center gap-1">
                               <LinkIcon className="w-3 h-3" />
                               {ann.link}
                             </p>
@@ -594,7 +563,7 @@ export default function BannersPage() {
                             className="h-8 w-8 p-0"
                             onClick={() => deleteItem(ann.id, "announcement")}
                           >
-                            <Trash2 className="w-4 h-4 text-[#8B1A1A]/40 hover:text-[#8B1A1A]" />
+                            <Trash2 className="w-4 h-4 text-[#DC2626]/40 hover:text-[#DC2626]" />
                           </Button>
                         </div>
                       </div>
@@ -608,14 +577,24 @@ export default function BannersPage() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="bg-white border-0 max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-hidden border-0 bg-white p-0 sm:max-h-[calc(100dvh-3rem)]">
+          <DialogHeader className="shrink-0 border-b border-[#E8DDD4] px-4 py-4 pr-14 sm:px-6 sm:py-5">
             <DialogTitle className="text-lg font-light tracking-wide text-[#1A1A1A]">
               {editingBanner ? "Edit" : "Add"} {dialogType === "hero" ? "Hero Banner" : dialogType === "editorial" ? "Editorial Banner" : "Announcement"}
             </DialogTitle>
+            <p className="text-xs text-[#1A1A1A]/50">
+              Add the banner content and choose an image for the storefront.
+            </p>
+            <DialogClose
+              type="button"
+              aria-label="Close banner form"
+              title="Close"
+              onClick={() => setDialogOpen(false)}
+            />
           </DialogHeader>
 
-          <div className="space-y-5 mt-2">
+          <div className="max-h-[calc(100dvh-9rem)] overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+            <div className="space-y-5">
             {dialogType === "announcement" ? (
               <>
                 <div>
@@ -626,7 +605,7 @@ export default function BannersPage() {
                     value={form.text}
                     onChange={(e) => setForm({ ...form, text: e.target.value })}
                     placeholder="Enter announcement text..."
-                    className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                    className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                   />
                 </div>
                 <div>
@@ -637,10 +616,10 @@ export default function BannersPage() {
                     value={form.link}
                     onChange={(e) => setForm({ ...form, link: e.target.value })}
                     placeholder="/collections/sale"
-                    className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                    className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">
                       Background Color
@@ -655,7 +634,7 @@ export default function BannersPage() {
                       <Input
                         value={form.bgColor}
                         onChange={(e) => setForm({ ...form, bgColor: e.target.value })}
-                        className="border-stone-200 bg-[#F5F0EB]/50 font-light text-sm font-mono"
+                        className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light text-sm font-mono"
                       />
                     </div>
                   </div>
@@ -673,12 +652,12 @@ export default function BannersPage() {
                       <Input
                         value={form.textColor}
                         onChange={(e) => setForm({ ...form, textColor: e.target.value })}
-                        className="border-stone-200 bg-[#F5F0EB]/50 font-light text-sm font-mono"
+                        className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light text-sm font-mono"
                       />
                     </div>
                   </div>
                 </div>
-                <div className="bg-[#F5F0EB] rounded-lg p-4">
+                <div className="bg-[#F8F5F2] rounded-sm p-4">
                   <p className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2">
                     Preview
                   </p>
@@ -700,7 +679,7 @@ export default function BannersPage() {
                     value={form.title}
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
                     placeholder="Banner title..."
-                    className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                    className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                   />
                 </div>
                 <div>
@@ -711,19 +690,201 @@ export default function BannersPage() {
                     value={form.subtitle}
                     onChange={(e) => setForm({ ...form, subtitle: e.target.value })}
                     placeholder="Subtitle text..."
-                    className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                    className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                   />
                 </div>
+                {/* ── Desktop Image ── */}
                 <div>
-                  <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">
-                    Image URL
-                  </label>
-                  <Input
-                    value={form.imageUrl}
-                    onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                    placeholder="/banners/image.jpg or https://..."
-                    className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
-                  />
+                  <div className="flex items-center gap-2 mb-2">
+                    <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
+                      Desktop Image
+                    </label>
+                    <span className="text-[10px] text-[#C9A27E] bg-[#C9A27E]/10 px-2 py-0.5 rounded-full font-medium uppercase tracking-wider">
+                      16:9 · Landscape
+                    </span>
+                  </div>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => imageInputRef.current?.click()}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") imageInputRef.current?.click();
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setIsDraggingImage(true);
+                    }}
+                    onDragLeave={() => setIsDraggingImage(false)}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      setIsDraggingImage(false);
+                      selectImage(event.dataTransfer.files[0]);
+                    }}
+                    className={cn(
+                      "relative flex min-h-40 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-sm border-2 border-dashed bg-[#F8F5F2]/50 p-4 text-center transition-colors",
+                      isDraggingImage ? "border-[#C9A27E] bg-[#C9A27E]/10" : "border-[#E8DDD4] hover:border-[#C9A27E]"
+                    )}
+                  >
+                    {imagePreview ? (
+                      <>
+                        <img src={imagePreview} alt="Desktop banner preview" className="absolute inset-0 h-full w-full object-cover" />
+                        <div className="absolute inset-0 bg-black/35" />
+                        <span className="relative z-10 rounded-sm bg-white/90 px-3 py-2 text-sm text-[#1A1A1A]">
+                          Click or drop to replace
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="mb-3 h-8 w-8 text-[#1A1A1A]/40" />
+                        <span className="text-sm text-[#1A1A1A]/60">Click to upload or drag and drop</span>
+                        <span className="mt-1 text-xs text-[#1A1A1A]/40">PNG, JPG, WebP up to 10MB</span>
+                      </>
+                    )}
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+                      className="hidden"
+                      onChange={(event) => selectImage(event.target.files?.[0])}
+                    />
+                  </div>
+                  {imagePreview && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setImageFile(null);
+                        setImagePreview("");
+                        setForm((current) => ({ ...current, imageUrl: "" }));
+                        if (imageInputRef.current) imageInputRef.current.value = "";
+                      }}
+                      className="mt-2 text-xs text-[#1A1A1A]/50 underline hover:text-[#1A1A1A]"
+                    >
+                      Remove desktop image
+                    </button>
+                  )}
+                  {!imageFile && (
+                    <div className="mt-4 rounded-sm border border-[#E8DDD4] bg-white p-3 sm:p-4">
+                      <div className="mb-2 flex items-center gap-2">
+                        <LinkIcon className="h-3.5 w-3.5 text-[#C9A27E]" />
+                        <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#1A1A1A]/50">
+                          Or use an image URL
+                        </span>
+                      </div>
+                      <Input
+                        value={form.imageUrl}
+                        onChange={(e) => {
+                          setForm({ ...form, imageUrl: e.target.value });
+                          setImagePreview(e.target.value);
+                        }}
+                        type="url"
+                        inputMode="url"
+                        aria-label="Desktop Image URL"
+                        placeholder="https://example.com/banner-desktop.jpg"
+                        className="h-11 border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
+                      />
+                      <p className="mt-2 text-xs leading-relaxed text-[#1A1A1A]/40">
+                        Use a publicly accessible HTTPS image URL, or upload an image from your device above.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Mobile Image ── */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium">
+                      Mobile Image
+                    </label>
+                    <span className="text-[10px] text-[#7E9AC9] bg-[#7E9AC9]/10 px-2 py-0.5 rounded-full font-medium uppercase tracking-wider">
+                      3:4 · Portrait · Optional
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#1A1A1A]/40 mb-3 leading-relaxed">
+                    Upload a portrait-cropped version for phones. If omitted, the desktop image is used on mobile.
+                  </p>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => mobileImageInputRef.current?.click()}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") mobileImageInputRef.current?.click();
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setIsDraggingMobile(true);
+                    }}
+                    onDragLeave={() => setIsDraggingMobile(false)}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      setIsDraggingMobile(false);
+                      selectMobileImage(event.dataTransfer.files[0]);
+                    }}
+                    className={cn(
+                      "relative flex min-h-32 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-sm border-2 border-dashed bg-[#F8F5F2]/50 p-4 text-center transition-colors",
+                      isDraggingMobile ? "border-[#7E9AC9] bg-[#7E9AC9]/10" : "border-[#E8DDD4] hover:border-[#7E9AC9]"
+                    )}
+                  >
+                    {mobileImagePreview ? (
+                      <>
+                        <img src={mobileImagePreview} alt="Mobile banner preview" className="absolute inset-0 h-full w-full object-cover" />
+                        <div className="absolute inset-0 bg-black/35" />
+                        <span className="relative z-10 rounded-sm bg-white/90 px-3 py-2 text-sm text-[#1A1A1A]">
+                          Click or drop to replace
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="mb-2 h-6 w-6 text-[#1A1A1A]/30" />
+                        <span className="text-sm text-[#1A1A1A]/50">Upload mobile image</span>
+                        <span className="mt-1 text-xs text-[#1A1A1A]/30">PNG, JPG, WebP up to 10MB</span>
+                      </>
+                    )}
+                    <input
+                      ref={mobileImageInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+                      className="hidden"
+                      onChange={(event) => selectMobileImage(event.target.files?.[0])}
+                    />
+                  </div>
+                  {mobileImagePreview && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setMobileImageFile(null);
+                        setMobileImagePreview("");
+                        setForm((current) => ({ ...current, mobileImageUrl: "" }));
+                        if (mobileImageInputRef.current) mobileImageInputRef.current.value = "";
+                      }}
+                      className="mt-2 text-xs text-[#1A1A1A]/50 underline hover:text-[#1A1A1A]"
+                    >
+                      Remove mobile image
+                    </button>
+                  )}
+                  {!mobileImageFile && (
+                    <div className="mt-4 rounded-sm border border-[#E8DDD4] bg-white p-3 sm:p-4">
+                      <div className="mb-2 flex items-center gap-2">
+                        <LinkIcon className="h-3.5 w-3.5 text-[#7E9AC9]" />
+                        <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#1A1A1A]/50">
+                          Or use a mobile image URL
+                        </span>
+                      </div>
+                      <Input
+                        value={form.mobileImageUrl}
+                        onChange={(e) => {
+                          setForm({ ...form, mobileImageUrl: e.target.value });
+                          setMobileImagePreview(e.target.value);
+                        }}
+                        type="url"
+                        inputMode="url"
+                        aria-label="Mobile Image URL"
+                        placeholder="https://example.com/banner-mobile.jpg"
+                        className="h-11 border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
+                      />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">
@@ -733,7 +894,7 @@ export default function BannersPage() {
                     value={form.link}
                     onChange={(e) => setForm({ ...form, link: e.target.value })}
                     placeholder="/collections/..."
-                    className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                    className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                   />
                 </div>
                 {dialogType === "hero" && (
@@ -745,7 +906,7 @@ export default function BannersPage() {
                       value={form.buttonText}
                       onChange={(e) => setForm({ ...form, buttonText: e.target.value })}
                       placeholder="Shop Now"
-                      className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                      className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                     />
                   </div>
                 )}
@@ -760,20 +921,21 @@ export default function BannersPage() {
                 </div>
               </>
             )}
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex flex-col-reverse gap-3 border-t border-[#E8DDD4] pt-5 sm:flex-row sm:justify-end">
               <Button
                 variant="outline"
                 onClick={() => setDialogOpen(false)}
-                className="border-stone-200 text-[#1A1A1A]/60 font-light"
+                className="w-full border-[#E8DDD4] text-[#1A1A1A]/60 font-light sm:w-auto"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleSave}
-                className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide"
+                className="w-full bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide sm:w-auto"
               >
                 {editingBanner ? "Save Changes" : "Add Banner"}
               </Button>
+            </div>
             </div>
           </div>
         </DialogContent>

@@ -1,24 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
   Pencil,
   Trash2,
   ChevronDown,
-  ChevronUp,
   MapPin,
   Briefcase,
-  Clock,
   DollarSign,
   PlusCircle,
   MinusCircle,
-  BriefcaseBusiness,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -37,6 +35,10 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { Career as CareerDTO } from "@/types";
+import { adminCareerService } from "@/lib/admin-services";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/api";
 
 interface Career {
   id: string;
@@ -50,97 +52,19 @@ interface Career {
   active: boolean;
 }
 
-const mockCareers: Career[] = [
-  {
-    id: "cr1",
-    title: "Senior Fashion Designer",
-    department: "Design",
-    location: "Lahore",
-    type: "full-time",
-    description: "We are seeking a talented Senior Fashion Designer to lead our design team in creating luxury ready-to-wear and haute couture collections. You will work closely with our creative director to translate brand vision into stunning, wearable art that celebrates Pakistani textile heritage.",
-    requirements: [
-      "Bachelor's degree in Fashion Design or related field",
-      "5+ years of experience in luxury fashion design",
-      "Proficiency in Adobe Creative Suite and CLO 3D",
-      "Strong understanding of South Asian textiles and embroidery techniques",
-      "Portfolio demonstrating high-end design capabilities",
-      "Experience managing a small design team",
-    ],
-    salary: "PKR 250,000 - 350,000 / month",
-    active: true,
-  },
-  {
-    id: "cr2",
-    title: "E-commerce Manager",
-    department: "Digital",
-    location: "Lahore",
-    type: "full-time",
-    description: "Join our digital team as E-commerce Manager to oversee and optimize our online retail operations. You will be responsible for driving online revenue, managing the website experience, and implementing digital marketing strategies that align with our luxury brand positioning.",
-    requirements: [
-      "Bachelor's degree in Business, Marketing, or related field",
-      "3+ years of e-commerce management experience",
-      "Experience with Shopify or similar platforms",
-      "Strong analytical skills and data-driven approach",
-      "Knowledge of SEO, SEM, and social media marketing",
-      "Understanding of luxury retail customer behavior",
-    ],
-    salary: "PKR 180,000 - 250,000 / month",
-    active: true,
-  },
-  {
-    id: "cr3",
-    title: "Marketing Executive",
-    department: "Marketing",
-    location: "Karachi",
-    type: "full-time",
-    description: "We are looking for a creative Marketing Executive to develop and execute marketing campaigns that elevate our brand presence. You will manage social media channels, coordinate with influencers, and create compelling content that resonates with our audience.",
-    requirements: [
-      "Bachelor's degree in Marketing, Communications, or related field",
-      "1-3 years of marketing experience, preferably in fashion/lifestyle",
-      "Excellent written and verbal communication skills",
-      "Proficiency in social media management tools",
-      "Experience with content creation and photography",
-      "Strong understanding of the Pakistani fashion market",
-    ],
-    salary: "PKR 80,000 - 120,000 / month",
-    active: true,
-  },
-  {
-    id: "cr4",
-    title: "Production Coordinator",
-    department: "Operations",
-    location: "Lahore",
-    type: "full-time",
-    description: "Manage the end-to-end production process from sampling to final delivery. Coordinate with our manufacturing partners to ensure quality standards are met and timelines are adhered to. You will be the bridge between design and production.",
-    requirements: [
-      "Bachelor's degree in Textile Engineering, Fashion Technology, or related field",
-      "2+ years in garment production management",
-      "Strong knowledge of fabric types and garment construction",
-      "Excellent organizational and communication skills",
-      "Experience with production planning and inventory management",
-    ],
-    salary: "PKR 100,000 - 150,000 / month",
-    active: true,
-  },
-  {
-    id: "cr5",
-    title: "Fashion Photography Intern",
-    department: "Creative",
-    location: "Lahore",
-    type: "internship",
-    description: "A 6-month internship opportunity for aspiring fashion photographers. Work alongside our creative team to shoot product, editorial, and campaign imagery. This is a hands-on learning experience with potential for full-time employment.",
-    requirements: [
-      "Currently enrolled or recent graduate in Photography/Visual Arts",
-      "Portfolio demonstrating fashion or portrait photography skills",
-      "Proficiency in Adobe Lightroom and Photoshop",
-      "Own camera equipment (DSLR or mirrorless)",
-      "Passion for fashion and luxury branding",
-      "Available for minimum 4 days per week",
-    ],
-    salary: "PKR 30,000 / month (stipend)",
-    active: false,
-  },
-];
+function mapCareer(c: CareerDTO): Career {
+  return {
+    id: c.id,
+    title: c.title,
+    department: c.department,
+    location: c.location,
+    type: c.type.replace("_", "-") as Career["type"],
+    description: c.description,
+    requirements: c.requirements,
+    salary: c.salary || "",
+    active: c.isActive,
+  };
+}
 
 const typeConfig: Record<string, { label: string; color: string }> = {
   "full-time": { label: "Full-Time", color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
@@ -150,7 +74,7 @@ const typeConfig: Record<string, { label: string; color: string }> = {
 };
 
 const departmentColors: Record<string, string> = {
-  Design: "bg-[#C9A96E]/10 text-[#7A6543] border-[#C9A96E]/20",
+  Design: "bg-[#C9A27E]/10 text-[#B8906A] border-[#C9A27E]/20",
   Digital: "bg-blue-50 text-blue-600 border-blue-200",
   Marketing: "bg-pink-50 text-pink-600 border-pink-200",
   Operations: "bg-emerald-50 text-emerald-600 border-emerald-200",
@@ -158,7 +82,34 @@ const departmentColors: Record<string, string> = {
 };
 
 export default function CareersPage() {
-  const [careers, setCareers] = useState(mockCareers);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: rawCareers = [] } = useQuery({
+    queryKey: ["careers"],
+    queryFn: () => adminCareerService.list(),
+  });
+  const careers = rawCareers.map(mapCareer);
+  const createMutation = useMutation({
+    mutationFn: (data: Partial<CareerDTO>) => adminCareerService.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["careers"] });
+      toast("success", "Career created successfully");
+    },
+    onError: (error: unknown) => toast("error", getErrorMessage(error)),
+  });
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<CareerDTO> }) => adminCareerService.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["careers"] }),
+    onError: (error: unknown) => toast("error", getErrorMessage(error)),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => adminCareerService.remove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["careers"] });
+      toast("success", "Career deleted successfully");
+    },
+    onError: (error: unknown) => toast("error", getErrorMessage(error)),
+  });
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCareer, setEditingCareer] = useState<Career | null>(null);
@@ -205,29 +156,36 @@ export default function CareersPage() {
 
   const handleSave = () => {
     const filteredReqs = form.requirements.filter((r) => r.trim() !== "");
+    const payload: Partial<CareerDTO> = {
+      title: form.title,
+      department: form.department,
+      location: form.location,
+      type: form.type.replace("-", "_") as CareerDTO["type"],
+      description: form.description,
+      requirements: filteredReqs,
+      salary: form.salary || undefined,
+      isActive: form.active,
+    };
     if (editingCareer) {
-      setCareers((prev) =>
-        prev.map((c) =>
-          c.id === editingCareer.id ? { ...c, ...form, requirements: filteredReqs } : c
-        )
+      updateMutation.mutate(
+        { id: editingCareer.id, data: payload },
+        { onSuccess: () => toast("success", "Career updated successfully") }
       );
     } else {
-      setCareers((prev) => [
-        ...prev,
-        { id: `cr${Date.now()}`, ...form, requirements: filteredReqs },
-      ]);
+      createMutation.mutate(payload);
     }
     setDialogOpen(false);
   };
 
   const toggleActive = (id: string) => {
-    setCareers((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, active: !c.active } : c))
-    );
+    const item = careers.find((c) => c.id === id);
+    if (item) {
+      updateMutation.mutate({ id, data: { isActive: !item.active } });
+    }
   };
 
   const deleteItem = (id: string) => {
-    setCareers((prev) => prev.filter((c) => c.id !== id));
+    deleteMutation.mutate(id);
   };
 
   const addRequirement = () => {
@@ -250,8 +208,8 @@ export default function CareersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F0EB]">
-      <div className="p-8 max-w-[1000px] mx-auto">
+    <div className="min-h-screen bg-[#F8F5F2]">
+      <div className="mx-auto w-full max-w-[1000px] min-w-0 p-4 sm:p-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -296,7 +254,7 @@ export default function CareersPage() {
                                   {config.label}
                                 </Badge>
                                 {!career.active && (
-                                  <Badge className="text-[9px] uppercase tracking-wider bg-stone-100 text-stone-400 border-0">
+                                  <Badge className="text-[9px] uppercase tracking-wider bg-[#E8DDD4]/40 text-[#1A1A1A]/40 border-0">
                                     Closed
                                   </Badge>
                                 )}
@@ -335,7 +293,7 @@ export default function CareersPage() {
                               className="overflow-hidden"
                             >
                               <div className="px-5 pb-5">
-                                <Separator className="bg-stone-100 mb-4" />
+                                <Separator className="bg-[#E8DDD4]/40 mb-4" />
                                 <p className="text-sm text-[#1A1A1A]/60 font-light leading-relaxed mb-4">
                                   {career.description}
                                 </p>
@@ -346,13 +304,13 @@ export default function CareersPage() {
                                   <ul className="space-y-1.5">
                                     {career.requirements.map((req, i) => (
                                       <li key={i} className="flex items-start gap-2 text-sm text-[#1A1A1A]/50 font-light">
-                                        <span className="w-1 h-1 rounded-full bg-[#C9A96E] mt-2 shrink-0" />
+                                        <span className="w-1 h-1 rounded-full bg-[#C9A27E] mt-2 shrink-0" />
                                         {req}
                                       </li>
                                     ))}
                                   </ul>
                                 </div>
-                                <div className="flex items-center gap-3 pt-3 border-t border-stone-50">
+                                <div className="flex items-center gap-3 pt-3 border-t border-[#1A1A1A]/5">
                                   <Switch
                                     checked={career.active}
                                     onCheckedChange={() => toggleActive(career.id)}
@@ -376,7 +334,7 @@ export default function CareersPage() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-8 px-3 text-xs font-light text-[#8B1A1A]/50 hover:text-[#8B1A1A] gap-1.5"
+                                    className="h-8 px-3 text-xs font-light text-[#DC2626]/50 hover:text-[#DC2626] gap-1.5"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       deleteItem(career.id);
@@ -414,17 +372,17 @@ export default function CareersPage() {
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
                 placeholder="Position title..."
-                className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">Department</label>
                 <Input
                   value={form.department}
                   onChange={(e) => setForm({ ...form, department: e.target.value })}
                   placeholder="Design, Marketing..."
-                  className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                  className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                 />
               </div>
               <div>
@@ -433,15 +391,15 @@ export default function CareersPage() {
                   value={form.location}
                   onChange={(e) => setForm({ ...form, location: e.target.value })}
                   placeholder="Lahore, Karachi..."
-                  className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                  className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-xs uppercase tracking-widest text-[#1A1A1A]/40 font-medium mb-2 block">Type</label>
                 <Select value={form.type} onValueChange={(val) => setForm({ ...form, type: val as Career["type"] })}>
-                  <SelectTrigger className="border-stone-200 bg-[#F5F0EB]/50 font-light">
+                  <SelectTrigger className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -458,7 +416,7 @@ export default function CareersPage() {
                   value={form.salary}
                   onChange={(e) => setForm({ ...form, salary: e.target.value })}
                   placeholder="PKR 100,000 - 150,000 / month"
-                  className="border-stone-200 bg-[#F5F0EB]/50 font-light focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                  className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                 />
               </div>
             </div>
@@ -468,7 +426,7 @@ export default function CareersPage() {
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 placeholder="Job description..."
-                className="border-stone-200 bg-[#F5F0EB]/50 font-light min-h-[100px] focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light min-h-[100px] focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
               />
             </div>
             <div>
@@ -477,7 +435,7 @@ export default function CareersPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 text-xs font-light text-[#7A6543] hover:text-[#7A6543]/80 gap-1"
+                  className="h-7 text-xs font-light text-[#B8906A] hover:text-[#B8906A]/80 gap-1"
                   onClick={addRequirement}
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
@@ -491,7 +449,7 @@ export default function CareersPage() {
                       value={req}
                       onChange={(e) => updateRequirement(index, e.target.value)}
                       placeholder={`Requirement ${index + 1}...`}
-                      className="border-stone-200 bg-[#F5F0EB]/50 font-light text-sm focus:border-[#C9A96E] focus:ring-[#C9A96E]/20"
+                      className="border-[#E8DDD4] bg-[#F8F5F2]/50 font-light text-sm focus:border-[#C9A27E] focus:ring-[#C9A27E]/20"
                     />
                     <Button
                       variant="ghost"
@@ -500,7 +458,7 @@ export default function CareersPage() {
                       onClick={() => removeRequirement(index)}
                       disabled={form.requirements.length <= 1}
                     >
-                      <MinusCircle className="w-4 h-4 text-[#8B1A1A]/30 hover:text-[#8B1A1A]" />
+                      <MinusCircle className="w-4 h-4 text-[#DC2626]/30 hover:text-[#DC2626]" />
                     </Button>
                   </div>
                 ))}
@@ -511,7 +469,7 @@ export default function CareersPage() {
               <Switch checked={form.active} onCheckedChange={(checked) => setForm({ ...form, active: checked })} />
             </div>
             <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-stone-200 text-[#1A1A1A]/60 font-light">
+              <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-[#E8DDD4] text-[#1A1A1A]/60 font-light">
                 Cancel
               </Button>
               <Button onClick={handleSave} className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide">

@@ -14,11 +14,11 @@ export function RevenueChart({ data }: RevenueChartProps) {
       <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#C9A96E" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#C9A96E" stopOpacity={0} />
+            <stop offset="5%" stopColor="#C9A27E" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="#C9A27E" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#F5F0EB" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#F8F5F2" vertical={false} />
         <XAxis
           dataKey="date"
           tickFormatter={(value) => format(new Date(value), "MMM dd")}
@@ -37,7 +37,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
             backgroundColor: "#1A1A1A",
             border: "none",
             borderRadius: "12px",
-            color: "#F5F0EB",
+            color: "#F8F5F2",
             padding: "12px 16px",
             boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
           }}
@@ -47,11 +47,11 @@ export function RevenueChart({ data }: RevenueChartProps) {
         <Area
           type="monotone"
           dataKey="revenue"
-          stroke="#C9A96E"
+          stroke="#C9A27E"
           strokeWidth={2}
           fill="url(#goldGradient)"
           dot={false}
-          activeDot={{ r: 5, fill: "#C9A96E", stroke: "#fff", strokeWidth: 2 }}
+          activeDot={{ r: 5, fill: "#C9A27E", stroke: "#fff", strokeWidth: 2 }}
         />
       </AreaChart>
     </ResponsiveContainer>
