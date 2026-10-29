@@ -49,6 +49,113 @@ import { adminTestimonialService } from "@/lib/admin-services";
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/api";
 
+async function optimizeTestimonialImage(file: File): Promise<File> {
+  const maxBytes = 150 * 1024;
+  const maxDimension = 1600;
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Unable to read image"));
+    reader.readAsDataURL(file);
+  });
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const loadedImage = new globalThis.Image();
+    loadedImage.onload = () => resolve(loadedImage);
+    loadedImage.onerror = () => reject(new Error("Unable to process image"));
+    loadedImage.src = dataUrl;
+  });
+  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Unable to create image canvas");
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  let quality = 0.75;
+  let blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", quality)
+  );
+  while (blob && blob.size > maxBytes && quality > 0.25) {
+    quality -= 0.1;
+    blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", quality)
+    );
+  }
+  if (!blob || blob.size > maxBytes) {
+    throw new Error("Image could not be reduced below the upload limit");
+  }
+  return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.jpg`, {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
+async function optimizeTestimonialVideo(file: File): Promise<File> {
+  const maxBytes = 900 * 1024;
+  if (file.size <= maxBytes) return file;
+  if (typeof MediaRecorder === "undefined") {
+    throw new Error("This browser cannot optimize video uploads");
+  }
+
+  const video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.src = URL.createObjectURL(file);
+  await new Promise<void>((resolve, reject) => {
+    video.onloadedmetadata = () => resolve();
+    video.onerror = () => reject(new Error("Unable to read video"));
+  });
+
+  const scale = Math.min(1, 480 / Math.max(video.videoWidth, video.videoHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(2, Math.round(video.videoWidth * scale));
+  canvas.height = Math.max(2, Math.round(video.videoHeight * scale));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Unable to create video canvas");
+
+  const stream = canvas.captureStream(15);
+  const videoWithCapture = video as HTMLVideoElement & {
+    captureStream?: () => MediaStream;
+  };
+  const sourceStream = videoWithCapture.captureStream?.() || null;
+  sourceStream?.getAudioTracks().forEach((track: MediaStreamTrack) => stream.addTrack(track));
+  const mimeType = ["video/webm;codecs=vp8,opus", "video/webm"].find((type) =>
+    MediaRecorder.isTypeSupported(type)
+  );
+  if (!mimeType) throw new Error("This browser cannot encode video uploads");
+
+  const chunks: Blob[] = [];
+  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 350000 });
+  const result = new Promise<Blob>((resolve, reject) => {
+    recorder.ondataavailable = (event) => {
+      if (event.data.size) chunks.push(event.data);
+    };
+    recorder.onerror = () => reject(new Error("Unable to optimize video"));
+    recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
+  });
+
+  const drawFrame = () => {
+    if (!video.ended) {
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      requestAnimationFrame(drawFrame);
+    }
+  };
+  video.onended = () => recorder.stop();
+  recorder.start();
+  drawFrame();
+  await video.play();
+  const blob = await result;
+  URL.revokeObjectURL(video.src);
+  if (blob.size > maxBytes) {
+    throw new Error("Video is still too large after optimization");
+  }
+  return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.webm`, {
+    type: mimeType,
+    lastModified: Date.now(),
+  });
+}
+
 interface Testimonial {
   id: string;
   customerName: string;
@@ -268,7 +375,7 @@ export default function TestimonialsPage() {
     setDialogOpen(true);
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -299,9 +406,21 @@ export default function TestimonialsPage() {
       setForm((prev) => ({ ...prev, type: "gallery" }));
     }
 
-    setSelectedFile(file);
-    const previewUrl = URL.createObjectURL(file);
-    setFilePreview(previewUrl);
+    try {
+      const optimizedFile = isVideo
+        ? await optimizeTestimonialVideo(file)
+        : await optimizeTestimonialImage(file);
+      setSelectedFile(optimizedFile);
+      const previewUrl = URL.createObjectURL(optimizedFile);
+      setFilePreview(previewUrl);
+    } catch (error) {
+      toast(
+        "error",
+        error instanceof Error
+          ? error.message
+          : "The media could not be processed. Please choose another file."
+      );
+    }
   };
 
   const handleSave = async () => {
