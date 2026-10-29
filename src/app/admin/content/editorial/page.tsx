@@ -249,25 +249,25 @@ export default function EditorialPage() {
 
   return (
     <div className="min-h-screen bg-[#F8F5F2]">
-      <div className="mx-auto w-full max-w-[1400px] min-w-0 p-4 sm:p-6">
+      <div className="mx-auto w-full max-w-[1400px] min-w-0 overflow-hidden p-3 sm:p-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-light tracking-wide text-[#1A1A1A]">Editorial</h1>
-              <p className="text-[#1A1A1A]/50 mt-1 font-light">
+          <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-light tracking-wide text-[#1A1A1A] sm:text-3xl">Editorial</h1>
+              <p className="mt-1 text-sm font-light text-[#1A1A1A]/50">
                 {editorials.length} editorial articles
               </p>
             </div>
             <Button
               onClick={openAdd}
-              className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/80 font-light tracking-wide"
+              className="w-full bg-[#1A1A1A] font-light tracking-wide text-white hover:bg-[#1A1A1A]/80 sm:w-auto"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Editorial
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5">
             <AnimatePresence mode="popLayout">
               {editorials.map((item, index) => (
                 <motion.div
@@ -300,7 +300,7 @@ export default function EditorialPage() {
                           </div>
                         )}
                       </div>
-                      <div className="p-5">
+                      <div className="p-4 sm:p-5">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1">
                             {item.category && (
@@ -332,8 +332,8 @@ export default function EditorialPage() {
                             {item.link}
                           </p>
                         )}
-                        <div className="flex items-center justify-between pt-3 border-t border-[#1A1A1A]/5">
-                          <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#1A1A1A]/5 pt-3">
+                          <div className="flex items-center gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -354,7 +354,7 @@ export default function EditorialPage() {
                             </Button>
                             <GripVertical className="w-3.5 h-3.5 text-[#1A1A1A]/15" />
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 sm:gap-2">
                             <Switch
                               checked={item.active}
                               onCheckedChange={() => toggleActive(item.id)}
@@ -379,7 +379,7 @@ export default function EditorialPage() {
 
       {/* Add / Edit Dialog - Closeable & Scrollable matching Collection Form */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-hidden border-0 bg-white p-0 sm:max-h-[calc(100dvh-3rem)]">
+        <DialogContent className="flex h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-2xl flex-col overflow-hidden rounded-lg border-0 bg-white p-0 sm:h-auto sm:max-h-[calc(100dvh-3rem)]">
           <DialogHeader className="shrink-0 border-b border-[#E8DDD4] px-4 py-4 pr-14 sm:px-6 sm:py-5">
             <DialogTitle className="font-serif text-xl text-[#1A1A1A]">
               {editingItem ? "Edit Editorial" : "New Editorial Article"}
@@ -395,7 +395,7 @@ export default function EditorialPage() {
             />
           </DialogHeader>
 
-          <div className="max-h-[calc(100dvh-9rem)] overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
             <div className="space-y-5">
               <Input
                 label="Editorial Title"
@@ -449,7 +449,7 @@ export default function EditorialPage() {
                     if (droppedFile) selectImage(droppedFile);
                   }}
                   className={cn(
-                    "relative flex min-h-40 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-sm border-2 border-dashed bg-[#F8F5F2]/50 p-4 text-center transition-colors",
+                    "relative flex aspect-[16/9] min-h-44 w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-sm border-2 border-dashed bg-[#F8F5F2]/50 p-4 text-center transition-colors sm:min-h-52",
                     isDraggingImage ? "border-[#C9A27E] bg-[#C9A27E]/10" : "border-[#E8DDD4] hover:border-[#C9A27E]"
                   )}
                 >
@@ -540,7 +540,7 @@ export default function EditorialPage() {
                 />
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-[#1A1A1A]/10">
+              <div className="flex items-center justify-between gap-4 border-t border-[#1A1A1A]/10 pt-4">
                 <div>
                   <p className="text-sm font-medium text-[#1A1A1A]">
                     Publish Status
@@ -559,7 +559,7 @@ export default function EditorialPage() {
             </div>
           </div>
 
-          <DialogFooter className="shrink-0 border-t border-[#E8DDD4] px-4 py-4 sm:px-6 sm:py-5">
+          <DialogFooter className="shrink-0 flex-col gap-2 border-t border-[#E8DDD4] px-4 py-4 sm:flex-row sm:px-6 sm:py-5">
             <Button
               variant="outline"
               onClick={() => setDialogOpen(false)}

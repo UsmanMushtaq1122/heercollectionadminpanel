@@ -38,6 +38,55 @@ import { adminCollectionService, adminProductService } from "@/lib/admin-service
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/api";
 
+async function optimizeCollectionImage(file: File): Promise<File> {
+  const maxBytes = 150 * 1024;
+  const maxDimension = 1600;
+
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Unable to read image"));
+    reader.readAsDataURL(file);
+  });
+
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const loadedImage = new globalThis.Image();
+    loadedImage.onload = () => resolve(loadedImage);
+    loadedImage.onerror = () => reject(new Error("Unable to process image"));
+    loadedImage.src = dataUrl;
+  });
+
+  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Unable to create image canvas");
+  }
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  let quality = 0.75;
+  let blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", quality)
+  );
+  while (blob && blob.size > maxBytes && quality > 0.25) {
+    quality -= 0.1;
+    blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", quality)
+    );
+  }
+
+  if (!blob || blob.size > maxBytes) {
+    throw new Error("Image could not be reduced below the upload limit");
+  }
+
+  return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.jpg`, {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
 export default function CollectionsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -88,7 +137,7 @@ export default function CollectionsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  const selectImage = (file?: File) => {
+  const selectImage = async (file?: File) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       toast("error", "Please choose an image file");
@@ -98,9 +147,14 @@ export default function CollectionsPage() {
       toast("error", "Image must be 10MB or smaller");
       return;
     }
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
-    setFormData((prev) => ({ ...prev, image: "" }));
+    try {
+      const optimizedFile = await optimizeCollectionImage(file);
+      setImageFile(optimizedFile);
+      setImagePreview(URL.createObjectURL(optimizedFile));
+      setFormData((prev) => ({ ...prev, image: "" }));
+    } catch {
+      toast("error", "The image could not be processed. Please choose another image.");
+    }
   };
 
   const filteredCollections = collections.filter(
@@ -597,7 +651,7 @@ export default function CollectionsPage() {
                   <>
                     <Upload className="mb-3 h-8 w-8 text-[#1A1A1A]/40" />
                     <span className="text-sm text-[#1A1A1A]/60">Click to upload or drag and drop</span>
-                    <span className="mt-1 text-xs text-[#1A1A1A]/40">PNG, JPG, WebP up to 10MB</span>
+                    <span className="mt-1 text-xs text-[#1A1A1A]/40">PNG, JPG, WebP up to 10MB (optimized automatically)</span>
                   </>
                 )}
                 <input
