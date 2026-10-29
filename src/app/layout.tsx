@@ -18,6 +18,11 @@ export const metadata: Metadata = {
   title: "Heer Collection Admin",
   description:
     "Admin panel for Heer Collection — premium luxury women's fashion. Manage products, orders, customers, and content.",
+  icons: {
+    icon: "/heer-logo.png",
+    shortcut: "/heer-logo.png",
+    apple: "/heer-logo.png",
+  },
 };
 
 export default function RootLayout({
