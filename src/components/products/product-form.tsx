@@ -44,6 +44,60 @@ function isSupportedImage(file: File) {
   return SUPPORTED_IMAGE_EXTENSIONS.has(extension);
 }
 
+async function optimizeProductImage(file: File): Promise<File> {
+  const maxBytes = 100 * 1024;
+  const maxDimension = 1600;
+
+  if (file.size <= maxBytes) {
+    return file;
+  }
+
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Unable to read image"));
+    reader.readAsDataURL(file);
+  });
+
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const loadedImage = new Image();
+    loadedImage.onload = () => resolve(loadedImage);
+    loadedImage.onerror = () => reject(new Error("Unable to process image"));
+    loadedImage.src = dataUrl;
+  });
+
+  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Unable to create image canvas");
+  }
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  let quality = 0.75;
+  let blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", quality)
+  );
+
+  while (blob && blob.size > maxBytes && quality > 0.25) {
+    quality -= 0.1;
+    blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", quality)
+    );
+  }
+
+  if (!blob || blob.size > maxBytes) {
+    throw new Error("Image could not be reduced below the upload limit");
+  }
+
+  return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.jpg`, {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
 const PRESET_SIZES = [
   { name: "XS", label: "Extra Small" },
   { name: "S", label: "Small" },
@@ -430,7 +484,7 @@ function ProductForm({ initialData, onSubmit, onDiscard, isLoading }: ProductFor
   );
 
   const handleImageUpload = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (!files) return;
       const validFiles = Array.from(files).filter((file) => {
@@ -446,13 +500,19 @@ function ProductForm({ initialData, onSubmit, onDiscard, isLoading }: ProductFor
       });
       const uploaded: { url: string; alt: string }[] = [];
       const filesToUpload: File[] = [];
-      validFiles
-        .slice(0, 8 - images.length)
-        .forEach((file) => {
+      try {
+        const optimizedFiles = await Promise.all(
+          validFiles.slice(0, 8 - images.length).map(optimizeProductImage)
+        );
+        optimizedFiles.forEach((file) => {
           const url = URL.createObjectURL(file);
           uploaded.push({ url, alt: file.name.replace(/\.[^/.]+$/, "") });
           filesToUpload.push(file);
         });
+      } catch {
+        toast("error", "One or more images could not be processed. Please try again.");
+        return;
+      }
       const combined = [...images, ...uploaded];
       setImages(combined);
       setImageFiles((current) => [...current, ...filesToUpload]);
@@ -460,7 +520,7 @@ function ProductForm({ initialData, onSubmit, onDiscard, isLoading }: ProductFor
         setValue("thumbnail", combined[0].url);
       }
     },
-    [images, watch, setValue]
+    [images, toast, watch, setValue]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -473,13 +533,13 @@ function ProductForm({ initialData, onSubmit, onDiscard, isLoading }: ProductFor
   }, []);
 
   const handleDrop = useCallback(
-    (e: React.DragEvent) => {
+    async (e: React.DragEvent) => {
       e.preventDefault();
       setDragActive(false);
       const files = e.dataTransfer.files;
       const uploaded: { url: string; alt: string }[] = [];
       const filesToUpload: File[] = [];
-      Array.from(files)
+      const validFiles = Array.from(files)
         .filter((file) => {
           if (!isSupportedImage(file)) {
             alert(`${file.name} is not a supported image format (JPG, PNG, GIF, WEBP, AVIF).`);
@@ -491,12 +551,18 @@ function ProductForm({ initialData, onSubmit, onDiscard, isLoading }: ProductFor
           }
           return true;
         })
-        .slice(0, 8 - images.length)
-        .forEach((file) => {
+        .slice(0, 8 - images.length);
+      try {
+        const optimizedFiles = await Promise.all(validFiles.map(optimizeProductImage));
+        optimizedFiles.forEach((file) => {
           const url = URL.createObjectURL(file);
           uploaded.push({ url, alt: file.name.replace(/\.[^/.]+$/, "") });
           filesToUpload.push(file);
         });
+      } catch {
+        toast("error", "One or more images could not be processed. Please try again.");
+        return;
+      }
       const combined = [...images, ...uploaded];
       setImages(combined);
       setImageFiles((current) => [...current, ...filesToUpload]);
@@ -504,7 +570,7 @@ function ProductForm({ initialData, onSubmit, onDiscard, isLoading }: ProductFor
         setValue("thumbnail", combined[0].url);
       }
     },
-    [images, watch, setValue]
+    [images, toast, watch, setValue]
   );
 
   const onFormSubmit = (data: ProductFormData) => {
@@ -1221,7 +1287,7 @@ function ProductForm({ initialData, onSubmit, onDiscard, isLoading }: ProductFor
                       Drop images or click to upload
                     </p>
                     <p className="mt-1 text-xs text-[#1A1A1A]/40">
-                      {8 - images.length} slots remaining (max 8). Images up to 10 MB each.
+                      {8 - images.length} slots remaining (max 8). Images up to 10 MB each (optimized automatically).
                     </p>
                     <input
                       type="file"

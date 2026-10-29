@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -237,7 +237,57 @@ export default function BannersPage() {
     setDialogOpen(false);
   };
 
-  const selectImage = (file: File | undefined) => {
+  const optimizeImage = useCallback(async (file: File): Promise<File> => {
+    const maxBytes = 150 * 1024;
+    const maxDimension = 1600;
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("Unable to read image"));
+      reader.readAsDataURL(file);
+    });
+
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const loadedImage = new globalThis.Image();
+      loadedImage.onload = () => resolve(loadedImage);
+      loadedImage.onerror = () => reject(new Error("Unable to process image"));
+      loadedImage.src = dataUrl;
+    });
+
+    const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Unable to create image canvas");
+    }
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    let quality = 0.75;
+    let blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", quality)
+    );
+
+    while (blob && blob.size > maxBytes && quality > 0.25) {
+      quality -= 0.1;
+      blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", quality)
+      );
+    }
+
+    if (!blob || blob.size > maxBytes) {
+      throw new Error("Image could not be reduced below the upload limit");
+    }
+
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.jpg`, {
+      type: "image/jpeg",
+      lastModified: Date.now(),
+    });
+  }, []);
+
+  const selectImage = async (file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       toast("error", "Please choose an image file");
@@ -247,12 +297,17 @@ export default function BannersPage() {
       toast("error", "Image must be 10MB or smaller");
       return;
     }
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
-    setForm((current) => ({ ...current, imageUrl: "" }));
+    try {
+      const optimizedFile = await optimizeImage(file);
+      setImageFile(optimizedFile);
+      setImagePreview(URL.createObjectURL(optimizedFile));
+      setForm((current) => ({ ...current, imageUrl: "" }));
+    } catch {
+      toast("error", "The image could not be processed. Please choose another image.");
+    }
   };
 
-  const selectMobileImage = (file: File | undefined) => {
+  const selectMobileImage = async (file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       toast("error", "Please choose an image file");
@@ -262,9 +317,14 @@ export default function BannersPage() {
       toast("error", "Image must be 10MB or smaller");
       return;
     }
-    setMobileImageFile(file);
-    setMobileImagePreview(URL.createObjectURL(file));
-    setForm((current) => ({ ...current, mobileImageUrl: "" }));
+    try {
+      const optimizedFile = await optimizeImage(file);
+      setMobileImageFile(optimizedFile);
+      setMobileImagePreview(URL.createObjectURL(optimizedFile));
+      setForm((current) => ({ ...current, mobileImageUrl: "" }));
+    } catch {
+      toast("error", "The image could not be processed. Please choose another image.");
+    }
   };
 
   const toggleActive = (id: string, type: "hero" | "editorial" | "announcement") => {
@@ -737,7 +797,7 @@ export default function BannersPage() {
                       <>
                         <Upload className="mb-3 h-8 w-8 text-[#1A1A1A]/40" />
                         <span className="text-sm text-[#1A1A1A]/60">Click to upload or drag and drop</span>
-                        <span className="mt-1 text-xs text-[#1A1A1A]/40">PNG, JPG, WebP up to 10MB</span>
+                        <span className="mt-1 text-xs text-[#1A1A1A]/40">PNG, JPG, WebP up to 10MB (optimized automatically)</span>
                       </>
                     )}
                     <input
@@ -837,7 +897,7 @@ export default function BannersPage() {
                       <>
                         <Upload className="mb-2 h-6 w-6 text-[#1A1A1A]/30" />
                         <span className="text-sm text-[#1A1A1A]/50">Upload mobile image</span>
-                        <span className="mt-1 text-xs text-[#1A1A1A]/30">PNG, JPG, WebP up to 10MB</span>
+                        <span className="mt-1 text-xs text-[#1A1A1A]/30">PNG, JPG, WebP up to 10MB (optimized automatically)</span>
                       </>
                     )}
                     <input

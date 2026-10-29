@@ -140,17 +140,76 @@ export default function CategoriesPage() {
     },
   })
 
-  const handleImageSelect = useCallback((file: File) => {
+  const optimizeImage = useCallback(async (file: File): Promise<File> => {
+    const maxBytes = 900 * 1024
+    const maxDimension = 1600
+
+    if (file.size <= maxBytes) {
+      return file
+    }
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = () => reject(new Error("Unable to read image"))
+      reader.readAsDataURL(file)
+    })
+
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const loadedImage = new Image()
+      loadedImage.onload = () => resolve(loadedImage)
+      loadedImage.onerror = () => reject(new Error("Unable to process image"))
+      loadedImage.src = dataUrl
+    })
+
+    const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight))
+    const canvas = document.createElement("canvas")
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale))
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale))
+    const context = canvas.getContext("2d")
+    if (!context) {
+      throw new Error("Unable to create image canvas")
+    }
+    context.drawImage(image, 0, 0, canvas.width, canvas.height)
+
+    let quality = 0.8
+    let blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", quality)
+    )
+
+    while (blob && blob.size > maxBytes && quality > 0.4) {
+      quality -= 0.1
+      blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", quality)
+      )
+    }
+
+    if (!blob || blob.size > maxBytes) {
+      throw new Error("Image could not be reduced below the upload limit")
+    }
+
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.jpg`, {
+      type: "image/jpeg",
+      lastModified: Date.now(),
+    })
+  }, [])
+
+  const handleImageSelect = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) return
     if (file.size > 10 * 1024 * 1024) {
-      alert("Image must be less than 10MB")
+      toast("error", "Image must be 10MB or smaller")
       return
     }
-    setImageFile(file)
-    const reader = new FileReader()
-    reader.onload = (e) => setImagePreview(e.target?.result as string)
-    reader.readAsDataURL(file)
-  }, [])
+    try {
+      const optimizedFile = await optimizeImage(file)
+      setImageFile(optimizedFile)
+      const reader = new FileReader()
+      reader.onload = () => setImagePreview(String(reader.result))
+      reader.readAsDataURL(optimizedFile)
+    } catch {
+      toast("error", "The image could not be processed. Please choose another image.")
+    }
+  }, [optimizeImage, toast])
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -837,7 +896,7 @@ export default function CategoriesPage() {
                     <p className="text-sm text-[#F8F5F2]/40">
                       {isDragging ? "Drop image here" : "Click to upload or drag and drop"}
                     </p>
-                    <p className="text-xs text-[#F8F5F2]/20 mt-1">PNG, JPG, WebP up to 10MB</p>
+                    <p className="text-xs text-[#F8F5F2]/20 mt-1">PNG, JPG, WebP up to 10MB (optimized automatically)</p>
                   </div>
                 )}
               </div>
